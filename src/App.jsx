@@ -312,18 +312,12 @@ export default function App() {
 
 
     const currentBizKey = `${data.selectedYear}-${data.selectedMonth}`;
+    // Fallback for when no transactions are loaded yet
     const currentBiz = data.monthlyBiz[currentBizKey] || { revenue: 0, expenses: 0 };
-    const profit = currentBiz.revenue - currentBiz.expenses;
-    const sustainability = profit > 500 ? (data.salary / profit) * 100 : 0;
-    const isHealthy = profit > 500 && sustainability <= 100;
-    const isEarlyData = profit <= 500;
-
-    const insight = getInsight(profit, sustainability, QUARTILE, data.salary);
+    // profit, sustainability, isHealthy, isEarlyData are now defined after bizCalcs useMemo
 
     const totalPersonal = useMemo(() => data.groups.reduce((a, g) => a + g.items.reduce((s, i) => s + i.amount, 0), 0), [data.groups]);
-
-    const isBonusEligible = data.bizBalance >= BIZ_SAFETY_BASELINE && profit > data.salary * 1.5;
-    const potentialBonus = isBonusEligible ? Math.floor((profit - data.salary) * 0.5) : 0;
+    // insight, isBonusEligible, potentialBonus moved after bizCalcs
 
     const dailyPrompt = getDailyPrompt();
 
@@ -341,12 +335,48 @@ export default function App() {
         return { groups, total };
     }, [transactions]);
 
+    // Business revenue/expense calculations filtered by selected month
+    const bizCalcs = useMemo(() => {
+        const monthNum = MONTHS.indexOf(data.selectedMonth);
+        const year = data.selectedYear;
 
+        // Filter transactions to selected month and business accounts
+        const monthTxs = transactions.filter(tx => {
+            const txDate = new Date(tx.date);
+            return txDate.getMonth() === monthNum && txDate.getFullYear() === year;
+        });
 
-    // Clear transactions when month changes (to force sync)
-    useEffect(() => {
-        setTransactions([]);
-    }, [data.selectedMonth, data.selectedYear]);
+        const bizAccounts = ['Business Checking', 'Business CC'];
+        const bizTxs = monthTxs.filter(tx => bizAccounts.includes(tx.account_name));
+
+        // Revenue: positive amounts from business checking only (income)
+        const revenue = monthTxs
+            .filter(tx => tx.account_name === 'Business Checking' && tx.amount > 0)
+            .reduce((sum, tx) => sum + tx.amount, 0);
+
+        // Expenses: negative amounts from both business accounts
+        const expenses = bizTxs
+            .filter(tx => tx.amount < 0)
+            .reduce((sum, tx) => sum + Math.abs(tx.amount), 0);
+
+        const profit = revenue - expenses;
+        const sustainability = profit > 500 ? (data.salary / profit) * 100 : 0;
+        const isHealthy = profit > 500 && sustainability <= 100;
+        const isEarlyData = profit <= 500;
+
+        return { revenue, expenses, profit, sustainability, isHealthy, isEarlyData };
+    }, [transactions, data.selectedMonth, data.selectedYear, data.salary]);
+
+    // Use bizCalcs values (fallback to stored data if no transactions yet)
+    const profit = bizCalcs.profit || (currentBiz.revenue - currentBiz.expenses);
+    const sustainability = bizCalcs.sustainability;
+    const isHealthy = bizCalcs.isHealthy;
+    const isEarlyData = bizCalcs.isEarlyData;
+
+    // Insight and bonus calculations (depend on profit)
+    const insight = getInsight(profit, sustainability, QUARTILE, data.salary);
+    const isBonusEligible = data.bizBalance >= BIZ_SAFETY_BASELINE && profit > data.salary * 1.5;
+    const potentialBonus = isBonusEligible ? Math.floor((profit - data.salary) * 0.5) : 0;
 
     // Gate the app behind PIN - AFTER all hooks are defined
     if (needsSetup) {
@@ -446,9 +476,15 @@ export default function App() {
 
                     const { icon, isCC, colorClass } = getIconAndColor(t.account_name);
 
+                    // Parse transaction name - simplify Shopify transactions
+                    let displayName = t.payee;
+                    if (t.account_name === 'Business Checking' && t.payee?.toLowerCase().includes('shopify')) {
+                        displayName = 'Shopify';
+                    }
+
                     mapped.push({
                         id: t.id,
-                        name: t.payee,
+                        name: displayName,
                         category: t.category_name || 'Uncategorized',
                         amount: amount,
                         date: t.date,
