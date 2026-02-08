@@ -8,7 +8,10 @@ import {
 
 
 
+import { useSwipe } from './useSwipe';
+
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const PAGE_ORDER = ['dashboard', 'budget', 'transactions', 'strategy'];
 const CURRENT_MONTH_INDEX = new Date().getMonth();
 const CURRENT_DAY = new Date().getDate();
 const BIZ_SAFETY_BASELINE = 25000;
@@ -525,6 +528,22 @@ export default function App() {
     };
 
 
+    // Swipe Navigation Logic
+    const swipeHandlers = useSwipe({
+        onSwipeLeft: () => {
+            const currentIndex = PAGE_ORDER.indexOf(page);
+            if (currentIndex < PAGE_ORDER.length - 1) {
+                setPage(PAGE_ORDER[currentIndex + 1]);
+            }
+        },
+        onSwipeRight: () => {
+            const currentIndex = PAGE_ORDER.indexOf(page);
+            if (currentIndex > 0) {
+                setPage(PAGE_ORDER[currentIndex - 1]);
+            }
+        }
+    });
+
     return (
         <>
             <ConfirmationModal
@@ -533,7 +552,7 @@ export default function App() {
                 onConfirm={confirmModal.onConfirm}
                 onCancel={() => setConfirmModal({ isOpen: false, message: '', onConfirm: null })}
             />
-            <div className="app-container">
+            <div className="app-container" {...swipeHandlers}>
                 {page === 'dashboard' ? (
                     <>
                         {/* Streak Tracker */}
