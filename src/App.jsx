@@ -47,14 +47,14 @@ const INITIAL_STATE = {
             ]
         },
         {
-            id: 'fixed', name: 'Fixed Expenses', color: '#5B7FFF', collapsed: true, items: [
+            id: 'fixed', name: 'Fixed Expenses', color: '#5B7FFF', collapsed: false, items: [
                 { id: '4', name: 'Mortgage', amount: 960 },
                 { id: '5', name: 'Utilities', amount: 280 },
                 { id: '6', name: 'Insurance', amount: 275 },
             ]
         },
         {
-            id: 'variable', name: 'Variable Spending', color: '#2DD4BF', collapsed: true, items: [
+            id: 'variable', name: 'Variable Spending', color: '#2DD4BF', collapsed: false, items: [
                 { id: '7', name: 'Groceries', amount: 500 },
                 { id: '8', name: 'Dining Out', amount: 250 },
                 { id: '9', name: 'Shopping', amount: 200 },
@@ -469,8 +469,8 @@ export default function App() {
                 // Create new groups structure
                 const newGroups = [
                     { id: 'wealth', name: 'Wealth Building', color: '#C8FF00', collapsed: false, items: [] },
-                    { id: 'fixed', name: 'Fixed Expenses', color: '#5B7FFF', collapsed: true, items: [] },
-                    { id: 'variable', name: 'Variable Spending', color: '#2DD4BF', collapsed: true, items: [] }
+                    { id: 'fixed', name: 'Fixed Expenses', color: '#5B7FFF', collapsed: false, items: [] },
+                    { id: 'variable', name: 'Variable Spending', color: '#2DD4BF', collapsed: false, items: [] }
                 ];
 
                 // Populate groups with categories
@@ -794,7 +794,7 @@ export default function App() {
                                                 <span className="group-total">{fmt(gTotal)}</span>
                                                 {g.collapsed ? <ChevronRight size={14} className="text-dim" /> : <ChevronDown size={14} className="text-dim" />}
                                             </div>
-                                            <button className="btn-icon btn-delete" style={{ width: 24, height: 24, marginLeft: 8 }} onClick={() => deleteGroup(g.id)}><Trash2 size={11} /></button>
+
                                         </div>
                                         {!g.collapsed && (
                                             <div className="group-content">
@@ -816,11 +816,7 @@ export default function App() {
                                     </div>
                                 );
                             })}
-                            <div className="flex gap-2 mt-2">
-                                <button className="add-item-btn" style={{ margin: 0, borderStyle: 'solid', borderWidth: 1 }} onClick={() => addGroup('Wealth')}><Plus size={10} /> Wealth</button>
-                                <button className="add-item-btn" style={{ margin: 0, borderStyle: 'solid', borderWidth: 1 }} onClick={() => addGroup('Fixed')}><Plus size={10} /> Fixed</button>
-                                <button className="add-item-btn" style={{ margin: 0, borderStyle: 'solid', borderWidth: 1 }} onClick={() => addGroup('Variable')}><Plus size={10} /> Variable</button>
-                            </div>
+
                         </div>
 
                         {/* Financial Goals */}
