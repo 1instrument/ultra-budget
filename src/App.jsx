@@ -653,31 +653,19 @@ export default function App() {
                         <div className="card mb-3">
                             <div className="card-header">
                                 <span className="card-title">Spending Breakdown</span>
-                                <div className="toggle-group">
-                                    <button className={`toggle-btn ${chartMode === 'allocation' ? 'active' : ''}`} onClick={() => setChartMode('allocation')}>Alloc</button>
-                                    <button className={`toggle-btn ${chartMode === 'actual' ? 'active' : ''}`} onClick={() => setChartMode('actual')}>Actual</button>
-                                </div>
                             </div>
                             <div style={{ display: 'flex', gap: 16, alignItems: 'center' }}>
                                 <div className="pie-chart" style={{
-                                    background: chartMode === 'allocation' ? `conic-gradient(
+                                    background: `conic-gradient(
                                         ${data.groups[0]?.color || '#C8FF00'} 0% ${pct(data.groups[0]?.items.reduce((s, i) => s + i.amount, 0) || 0)}%,
                                         ${data.groups[1]?.color || '#5B7FFF'} ${pct(data.groups[0]?.items.reduce((s, i) => s + i.amount, 0) || 0)}% ${pct((data.groups[0]?.items.reduce((s, i) => s + i.amount, 0) || 0) + (data.groups[1]?.items.reduce((s, i) => s + i.amount, 0) || 0))}%,
                                         ${data.groups[2]?.color || '#2DD4BF'} ${pct((data.groups[0]?.items.reduce((s, i) => s + i.amount, 0) || 0) + (data.groups[1]?.items.reduce((s, i) => s + i.amount, 0) || 0))}% 100%
-                                    )` : `conic-gradient(
-                                        ${data.groups[0]?.color || '#C8FF00'} 0% 0%,
-                                        ${data.groups[1]?.color || '#5B7FFF'} 0% ${(actualBreakdown.groups[1] / actualBreakdown.total * 100).toFixed(0)}%,
-                                        ${data.groups[2]?.color || '#2DD4BF'} ${(actualBreakdown.groups[1] / actualBreakdown.total * 100).toFixed(0)}% 100%
                                     )`
                                 }} />
                                 <div style={{ flex: 1 }}>
-                                    {data.groups.map((g, idx) => {
-                                        const gVal = chartMode === 'allocation'
-                                            ? g.items.reduce((s, i) => s + i.amount, 0)
-                                            : actualBreakdown.groups[idx];
-                                        const gPct = chartMode === 'allocation'
-                                            ? pct(gVal)
-                                            : actualBreakdown.total > 0 ? (gVal / actualBreakdown.total * 100).toFixed(0) : 0;
+                                    {data.groups.map(g => {
+                                        const gVal = g.items.reduce((s, i) => s + i.amount, 0);
+                                        const gPct = pct(gVal);
 
                                         return (
                                             <div key={g.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
