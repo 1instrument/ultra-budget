@@ -152,7 +152,8 @@ function SetupPin({ onComplete }) {
         }
         localStorage.setItem('ultra_pin_hash', hashPin(pin));
         sessionStorage.setItem('ultra_unlocked', 'true');
-        onComplete();
+        // Use setTimeout to ensure React has time to process state change
+        setTimeout(() => onComplete(), 0);
     };
 
     return (
@@ -201,7 +202,8 @@ function LockScreen({ onUnlock }) {
         const storedHash = localStorage.getItem('ultra_pin_hash');
         if (hashPin(pin) === storedHash) {
             sessionStorage.setItem('ultra_unlocked', 'true');
-            onUnlock();
+            // Use setTimeout to ensure React has time to process state change
+            setTimeout(() => onUnlock(), 0);
         } else {
             setAttempts(a => a + 1);
             setError(`Incorrect PIN${attempts >= 2 ? ` (${attempts + 1} attempts)` : ''}`);
@@ -244,6 +246,14 @@ export default function App() {
     const [debugMode, setDebugMode] = useState(false);
     const [transactions, setTransactions] = useState(PLACEHOLDER_TXS);
     const [txLimit, setTxLimit] = useState(50);
+    // Transaction filters - default all OFF (show all)
+    const [accountFilters, setAccountFilters] = useState({
+        personalChk: false,
+        personalCC: false,
+        bizChk: false,
+        bizCC: false
+    });
+    const [monthFilter, setMonthFilter] = useState(false);
 
     // Lock Screen State
     const [needsSetup, setNeedsSetup] = useState(() => !localStorage.getItem('ultra_pin_hash'));
@@ -868,45 +878,197 @@ export default function App() {
                             </div>
                         </div>
 
+                        {/* Filter Bar */}
+                        <div style={{ display: 'flex', gap: 8, marginBottom: 12, flexWrap: 'wrap' }}>
+                            {/* Account Filters */}
+                            <button
+                                onClick={() => setAccountFilters(f => ({ ...f, personalChk: !f.personalChk }))}
+                                style={{
+                                    display: 'flex', alignItems: 'center', gap: 4,
+                                    padding: '6px 10px', fontSize: 11, fontWeight: 600,
+                                    background: accountFilters.personalChk ? 'rgba(0, 212, 170, 0.2)' : 'var(--bg-input)',
+                                    color: accountFilters.personalChk ? 'var(--accent-green)' : 'var(--text-dim)',
+                                    border: accountFilters.personalChk ? '1px solid var(--accent-green)' : '1px solid transparent',
+                                    borderRadius: 8, cursor: 'pointer'
+                                }}
+                            >
+                                <Wallet size={12} /> Personal
+                            </button>
+                            <button
+                                onClick={() => setAccountFilters(f => ({ ...f, personalCC: !f.personalCC }))}
+                                style={{
+                                    display: 'flex', alignItems: 'center', gap: 4,
+                                    padding: '6px 10px', fontSize: 11, fontWeight: 600,
+                                    background: accountFilters.personalCC ? 'rgba(0, 212, 170, 0.2)' : 'var(--bg-input)',
+                                    color: accountFilters.personalCC ? 'var(--accent-green)' : 'var(--text-dim)',
+                                    border: accountFilters.personalCC ? '1px solid var(--accent-green)' : '1px solid transparent',
+                                    borderRadius: 8, cursor: 'pointer'
+                                }}
+                            >
+                                <span style={{ fontSize: 10, fontWeight: 700 }}>CC</span> Personal
+                            </button>
+                            <button
+                                onClick={() => setAccountFilters(f => ({ ...f, bizChk: !f.bizChk }))}
+                                style={{
+                                    display: 'flex', alignItems: 'center', gap: 4,
+                                    padding: '6px 10px', fontSize: 11, fontWeight: 600,
+                                    background: accountFilters.bizChk ? 'rgba(91, 127, 255, 0.2)' : 'var(--bg-input)',
+                                    color: accountFilters.bizChk ? 'var(--accent-blue)' : 'var(--text-dim)',
+                                    border: accountFilters.bizChk ? '1px solid var(--accent-blue)' : '1px solid transparent',
+                                    borderRadius: 8, cursor: 'pointer'
+                                }}
+                            >
+                                <Building2 size={12} /> Business
+                            </button>
+                            <button
+                                onClick={() => setAccountFilters(f => ({ ...f, bizCC: !f.bizCC }))}
+                                style={{
+                                    display: 'flex', alignItems: 'center', gap: 4,
+                                    padding: '6px 10px', fontSize: 11, fontWeight: 600,
+                                    background: accountFilters.bizCC ? 'rgba(91, 127, 255, 0.2)' : 'var(--bg-input)',
+                                    color: accountFilters.bizCC ? 'var(--accent-blue)' : 'var(--text-dim)',
+                                    border: accountFilters.bizCC ? '1px solid var(--accent-blue)' : '1px solid transparent',
+                                    borderRadius: 8, cursor: 'pointer'
+                                }}
+                            >
+                                <span style={{ fontSize: 10, fontWeight: 700 }}>CC</span> Business
+                            </button>
+                            {/* Month Filter */}
+                            <button
+                                onClick={() => setMonthFilter(m => !m)}
+                                style={{
+                                    padding: '6px 10px', fontSize: 11, fontWeight: 600,
+                                    background: monthFilter ? 'var(--accent-amber)' : 'var(--bg-input)',
+                                    color: monthFilter ? '#000' : 'var(--text-dim)',
+                                    border: 'none', borderRadius: 8, cursor: 'pointer', marginLeft: 'auto'
+                                }}
+                            >
+                                {monthFilter ? `${data.selectedMonth} Only` : 'All Months'}
+                            </button>
+                        </div>
+
                         <div className="card">
                             <div className="card-header">
                                 <span className="card-title">Recent Activity</span>
-                                <span className="text-dim" style={{ fontSize: 10 }}>({transactions.length})</span>
+                                <span className="text-dim" style={{ fontSize: 10 }}>({(() => {
+                                    // Filter logic
+                                    const anyAccountFilter = Object.values(accountFilters).some(v => v);
+                                    let filtered = transactions;
+
+                                    // Month filter
+                                    if (monthFilter) {
+                                        const monthNum = MONTHS.indexOf(data.selectedMonth);
+                                        filtered = filtered.filter(tx => {
+                                            const txDate = new Date(tx.date);
+                                            return txDate.getMonth() === monthNum && txDate.getFullYear() === data.selectedYear;
+                                        });
+                                    }
+
+                                    // Account filters (if any active)
+                                    if (anyAccountFilter) {
+                                        filtered = filtered.filter(tx => {
+                                            const acct = (tx.account_name || '').toLowerCase();
+                                            const isBiz = acct.includes('business');
+                                            const isCC = acct.includes('cc') || acct.includes('credit');
+
+                                            if (accountFilters.personalChk && !isBiz && !isCC) return true;
+                                            if (accountFilters.personalCC && !isBiz && isCC) return true;
+                                            if (accountFilters.bizChk && isBiz && !isCC) return true;
+                                            if (accountFilters.bizCC && isBiz && isCC) return true;
+                                            return false;
+                                        });
+                                    }
+                                    return filtered.length;
+                                })()})</span>
                             </div>
                             <div className="tx-list">
-                                {transactions.slice(0, txLimit).map(tx => (
-                                    <div key={tx.id} className="tx-item" style={{ flexDirection: 'column', alignItems: 'stretch' }}>
-                                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                                            <div style={{ display: 'flex', alignItems: 'center' }}>
-                                                <div className={`tx-icon ${tx.colorClass === 'text-blue' ? 'tx-icon-blue' : 'tx-icon-green'}`}>
-                                                    {tx.isCC ? (
-                                                        <span className={tx.colorClass} style={{ fontSize: 12, fontWeight: 700 }}>CC</span>
-                                                    ) : (
-                                                        <tx.icon size={16} className={tx.colorClass} />
-                                                    )}
+                                {(() => {
+                                    // Filter logic (same as count)
+                                    const anyAccountFilter = Object.values(accountFilters).some(v => v);
+                                    let filtered = transactions;
+
+                                    // Month filter
+                                    if (monthFilter) {
+                                        const monthNum = MONTHS.indexOf(data.selectedMonth);
+                                        filtered = filtered.filter(tx => {
+                                            const txDate = new Date(tx.date);
+                                            return txDate.getMonth() === monthNum && txDate.getFullYear() === data.selectedYear;
+                                        });
+                                    }
+
+                                    // Account filters
+                                    if (anyAccountFilter) {
+                                        filtered = filtered.filter(tx => {
+                                            const acct = (tx.account_name || '').toLowerCase();
+                                            const isBiz = acct.includes('business');
+                                            const isCC = acct.includes('cc') || acct.includes('credit');
+
+                                            if (accountFilters.personalChk && !isBiz && !isCC) return true;
+                                            if (accountFilters.personalCC && !isBiz && isCC) return true;
+                                            if (accountFilters.bizChk && isBiz && !isCC) return true;
+                                            if (accountFilters.bizCC && isBiz && isCC) return true;
+                                            return false;
+                                        });
+                                    }
+
+                                    return filtered.slice(0, txLimit).map(tx => (
+                                        <div key={tx.id} className="tx-item" style={{ flexDirection: 'column', alignItems: 'stretch' }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                                <div style={{ display: 'flex', alignItems: 'center' }}>
+                                                    <div className={`tx-icon ${tx.colorClass === 'text-blue' ? 'tx-icon-blue' : 'tx-icon-green'}`}>
+                                                        {tx.isCC ? (
+                                                            <span className={tx.colorClass} style={{ fontSize: 12, fontWeight: 700 }}>CC</span>
+                                                        ) : (
+                                                            <tx.icon size={16} className={tx.colorClass} />
+                                                        )}
+                                                    </div>
+                                                    <div className="tx-details">
+                                                        <div className="tx-name">{tx.name}</div>
+                                                        <div className="tx-meta">{tx.category} • {tx.date}</div>
+                                                    </div>
                                                 </div>
-                                                <div className="tx-details">
-                                                    <div className="tx-name">{tx.name}</div>
-                                                    <div className="tx-meta">{tx.category} • {tx.date}</div>
+                                                <div className={`tx-amount ${tx.amount > 0 ? 'income' : 'expense'}`}>
+                                                    {tx.amount > 0 ? '+' : ''}{fmt(tx.amount)}
                                                 </div>
                                             </div>
-                                            <div className={`tx-amount ${tx.amount > 0 ? 'income' : 'expense'}`}>
-                                                {tx.amount > 0 ? '+' : ''}{fmt(tx.amount)}
-                                            </div>
+                                            {/* Debug Output */}
+                                            {debugMode && (
+                                                <div className="tx-debug">
+                                                    [DEBUG] account: "{tx.account_name}" | raw_amount: {tx.raw_amount}
+                                                </div>
+                                            )}
                                         </div>
-                                        {/* Debug Output */}
-                                        {debugMode && (
-                                            <div className="tx-debug">
-                                                [DEBUG] account: "{tx.account_name}" | raw_amount: {tx.raw_amount}
-                                            </div>
-                                        )}
-                                    </div>
-                                ))}
-                                {transactions.length > txLimit && (
-                                    <button className="load-more-btn" style={{ width: '100%', padding: '12px', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 12, marginTop: 8, fontSize: 13, fontWeight: 600, color: 'var(--text-secondary)' }} onClick={() => setTxLimit(l => l + 50)}>
-                                        Load More ({transactions.length - txLimit} remaining)
-                                    </button>
-                                )}
+                                    ));
+                                })()}
+                                {(() => {
+                                    // Same filter logic for load more button
+                                    const anyAccountFilter = Object.values(accountFilters).some(v => v);
+                                    let filtered = transactions;
+                                    if (monthFilter) {
+                                        const monthNum = MONTHS.indexOf(data.selectedMonth);
+                                        filtered = filtered.filter(tx => {
+                                            const txDate = new Date(tx.date);
+                                            return txDate.getMonth() === monthNum && txDate.getFullYear() === data.selectedYear;
+                                        });
+                                    }
+                                    if (anyAccountFilter) {
+                                        filtered = filtered.filter(tx => {
+                                            const acct = (tx.account_name || '').toLowerCase();
+                                            const isBiz = acct.includes('business');
+                                            const isCC = acct.includes('cc') || acct.includes('credit');
+                                            if (accountFilters.personalChk && !isBiz && !isCC) return true;
+                                            if (accountFilters.personalCC && !isBiz && isCC) return true;
+                                            if (accountFilters.bizChk && isBiz && !isCC) return true;
+                                            if (accountFilters.bizCC && isBiz && isCC) return true;
+                                            return false;
+                                        });
+                                    }
+                                    return filtered.length > txLimit && (
+                                        <button className="load-more-btn" style={{ width: '100%', padding: '12px', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 12, marginTop: 8, fontSize: 13, fontWeight: 600, color: 'var(--text-secondary)' }} onClick={() => setTxLimit(l => l + 50)}>
+                                            Load More ({filtered.length - txLimit} remaining)
+                                        </button>
+                                    );
+                                })()}
                             </div>
                         </div>
                     </>
