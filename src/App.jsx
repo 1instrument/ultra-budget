@@ -538,20 +538,6 @@ export default function App() {
             <div className="app-container" {...swipeHandlers}>
                 {page === 'dashboard' ? (
                     <>
-                        {/* Streak Tracker */}
-                        <div className="flex items-center justify-between mb-2" style={{ padding: '0 4px' }}>
-                            <div className="flex items-center gap-2">
-                                <CalendarCheck size={14} className="text-teal" />
-                                <span style={{ fontSize: 11, fontWeight: 600 }}>Daily Check-in</span>
-                            </div>
-                            <div className="streak-row">
-                                {[...Array(7)].map((_, i) => (
-                                    <div key={i} className={`streak-pill ${i < (data.streak % 8) ? 'active' : ''}`} />
-                                ))}
-                                <span style={{ fontSize: 10, fontWeight: 700, marginLeft: 4, color: 'var(--accent-teal)' }}>{data.streak} DAY STREAK</span>
-                            </div>
-                        </div>
-
                         {/* Account Section */}
                         <div className="account-section">
                             <div className="account-section-title">Account Balances</div>
@@ -879,59 +865,51 @@ export default function App() {
                         </div>
 
                         {/* Filter Bar */}
-                        <div style={{ display: 'flex', gap: 8, marginBottom: 12, flexWrap: 'wrap' }}>
-                            {/* Account Filters */}
+                        <div style={{ display: 'flex', gap: 8, marginBottom: 12, alignItems: 'center' }}>
+                            {/* Account Filters - styled like tx-icon */}
                             <button
                                 onClick={() => setAccountFilters(f => ({ ...f, personalChk: !f.personalChk }))}
+                                className={accountFilters.personalChk ? 'tx-icon tx-icon-green' : 'tx-icon'}
                                 style={{
-                                    display: 'flex', alignItems: 'center', gap: 4,
-                                    padding: '6px 10px', fontSize: 11, fontWeight: 600,
-                                    background: accountFilters.personalChk ? 'rgba(0, 212, 170, 0.2)' : 'var(--bg-input)',
-                                    color: accountFilters.personalChk ? 'var(--accent-green)' : 'var(--text-dim)',
-                                    border: accountFilters.personalChk ? '1px solid var(--accent-green)' : '1px solid transparent',
-                                    borderRadius: 8, cursor: 'pointer'
+                                    width: 42, height: 42, border: 'none', cursor: 'pointer',
+                                    opacity: accountFilters.personalChk ? 1 : 0.5,
+                                    boxShadow: accountFilters.personalChk ? '0 0 0 2px var(--accent-green)' : 'none'
                                 }}
                             >
-                                <Wallet size={12} /> Personal
+                                <Wallet size={16} className={accountFilters.personalChk ? 'text-green' : 'text-dim'} />
                             </button>
                             <button
                                 onClick={() => setAccountFilters(f => ({ ...f, personalCC: !f.personalCC }))}
+                                className={accountFilters.personalCC ? 'tx-icon tx-icon-green' : 'tx-icon'}
                                 style={{
-                                    display: 'flex', alignItems: 'center', gap: 4,
-                                    padding: '6px 10px', fontSize: 11, fontWeight: 600,
-                                    background: accountFilters.personalCC ? 'rgba(0, 212, 170, 0.2)' : 'var(--bg-input)',
-                                    color: accountFilters.personalCC ? 'var(--accent-green)' : 'var(--text-dim)',
-                                    border: accountFilters.personalCC ? '1px solid var(--accent-green)' : '1px solid transparent',
-                                    borderRadius: 8, cursor: 'pointer'
+                                    width: 42, height: 42, border: 'none', cursor: 'pointer',
+                                    opacity: accountFilters.personalCC ? 1 : 0.5,
+                                    boxShadow: accountFilters.personalCC ? '0 0 0 2px var(--accent-green)' : 'none'
                                 }}
                             >
-                                <span style={{ fontSize: 10, fontWeight: 700 }}>CC</span> Personal
+                                <span style={{ fontSize: 12, fontWeight: 700 }} className={accountFilters.personalCC ? 'text-green' : 'text-dim'}>CC</span>
                             </button>
                             <button
                                 onClick={() => setAccountFilters(f => ({ ...f, bizChk: !f.bizChk }))}
+                                className={accountFilters.bizChk ? 'tx-icon tx-icon-blue' : 'tx-icon'}
                                 style={{
-                                    display: 'flex', alignItems: 'center', gap: 4,
-                                    padding: '6px 10px', fontSize: 11, fontWeight: 600,
-                                    background: accountFilters.bizChk ? 'rgba(91, 127, 255, 0.2)' : 'var(--bg-input)',
-                                    color: accountFilters.bizChk ? 'var(--accent-blue)' : 'var(--text-dim)',
-                                    border: accountFilters.bizChk ? '1px solid var(--accent-blue)' : '1px solid transparent',
-                                    borderRadius: 8, cursor: 'pointer'
+                                    width: 42, height: 42, border: 'none', cursor: 'pointer',
+                                    opacity: accountFilters.bizChk ? 1 : 0.5,
+                                    boxShadow: accountFilters.bizChk ? '0 0 0 2px var(--accent-blue)' : 'none'
                                 }}
                             >
-                                <Building2 size={12} /> Business
+                                <Building2 size={16} className={accountFilters.bizChk ? 'text-blue' : 'text-dim'} />
                             </button>
                             <button
                                 onClick={() => setAccountFilters(f => ({ ...f, bizCC: !f.bizCC }))}
+                                className={accountFilters.bizCC ? 'tx-icon tx-icon-blue' : 'tx-icon'}
                                 style={{
-                                    display: 'flex', alignItems: 'center', gap: 4,
-                                    padding: '6px 10px', fontSize: 11, fontWeight: 600,
-                                    background: accountFilters.bizCC ? 'rgba(91, 127, 255, 0.2)' : 'var(--bg-input)',
-                                    color: accountFilters.bizCC ? 'var(--accent-blue)' : 'var(--text-dim)',
-                                    border: accountFilters.bizCC ? '1px solid var(--accent-blue)' : '1px solid transparent',
-                                    borderRadius: 8, cursor: 'pointer'
+                                    width: 42, height: 42, border: 'none', cursor: 'pointer',
+                                    opacity: accountFilters.bizCC ? 1 : 0.5,
+                                    boxShadow: accountFilters.bizCC ? '0 0 0 2px var(--accent-blue)' : 'none'
                                 }}
                             >
-                                <span style={{ fontSize: 10, fontWeight: 700 }}>CC</span> Business
+                                <span style={{ fontSize: 12, fontWeight: 700 }} className={accountFilters.bizCC ? 'text-blue' : 'text-dim'}>CC</span>
                             </button>
                             {/* Month Filter */}
                             <button
