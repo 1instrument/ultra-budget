@@ -244,7 +244,11 @@ export default function App() {
     const [filterCategory, setFilterCategory] = useState('all'); // 'all' or specific category name
     const [isSyncing, setIsSyncing] = useState(false);
     const [transactions, setTransactions] = useState(PLACEHOLDER_TXS);
+    const [transactions, setTransactions] = useState(PLACEHOLDER_TXS);
     const [txLimit, setTxLimit] = useState(50);
+    const [showFilters, setShowFilters] = useState(false);
+    const [filterDateStart, setFilterDateStart] = useState('');
+    const [filterDateEnd, setFilterDateEnd] = useState('');
 
     // Lock Screen State
     const [needsSetup, setNeedsSetup] = useState(() => !localStorage.getItem('ultra_pin_hash'));
@@ -341,17 +345,32 @@ export default function App() {
     const filteredTxs = useMemo(() => {
         let txs = transactions;
         // Filter by type
-        if (filterType === 'income') txs = txs.filter(tx => tx.amount > 0);
-        else if (filterType === 'expenses') txs = txs.filter(tx => tx.amount < 0);
-        // Filter by category
-        if (filterCategory !== 'all') txs = txs.filter(tx => tx.category === filterCategory);
+        if (filterType === 'income') txs = txs.filter(t => t.amount > 0);
+        if (filterType === 'expenses') txs = txs.filter(t => t.amount < 0);
+
+        if (filterCategory !== 'all') {
+            txs = txs.filter(t => t.category === filterCategory);
+        }
+
+        if (filterDateStart) {
+            txs = txs.filter(t => t.date >= filterDateStart);
+        }
+        if (filterDateEnd) {
+            txs = txs.filter(t => t.date <= filterDateEnd);
+        }
+
         return txs;
-    }, [transactions, filterType, filterCategory]);
+    }, [transactions, filterType, filterCategory, filterDateStart, filterDateEnd]);
 
     // Reset pagination when filters change
     useEffect(() => {
         setTxLimit(50);
-    }, [filterType, filterCategory]);
+    }, [filterType, filterCategory, filterDateStart, filterDateEnd]);
+
+    // Clear transactions when month changes (to force sync)
+    useEffect(() => {
+        setTransactions([]);
+    }, [data.selectedMonth, data.selectedYear]);
 
     // Gate the app behind PIN - AFTER all hooks are defined
     if (needsSetup) {
@@ -962,43 +981,83 @@ export default function App() {
                 ) : page === 'transactions' ? (
                     /* Transactions Page */
                     <>
+                        {/* Header & Filter Toggle */}
                         <div className="flex items-center justify-between mb-3">
                             <h1 style={{ fontSize: 18, fontWeight: 700 }}>Transactions</h1>
-                            <button className={`sync-btn ${isSyncing ? 'syncing' : ''}`} onClick={syncLunchMoneyData} disabled={isSyncing}>
-                                <Clock size={12} className={isSyncing ? 'spin' : ''} />
-                                {isSyncing ? 'Syncing...' : 'Sync Lunch Money'}
-                            </button>
-                        </div>
-
-                        {/* Filters */}
-                        <div className="mb-3">
-                            <div className="filter-pills" style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-                                <button className={`filter-pill ${filterType === 'all' ? 'active' : ''}`} onClick={() => { setFilterType('all'); setFilterCategory('all'); }}>All</button>
-                                <button className={`filter-pill ${filterType === 'income' ? 'active' : ''}`} onClick={() => { setFilterType('income'); setFilterCategory('all'); }}>Income</button>
-                                <button className={`filter-pill ${filterType === 'expenses' ? 'active' : ''}`} onClick={() => { setFilterType('expenses'); setFilterCategory('all'); }}>Expenses</button>
-
-                                {filterType === 'expenses' && (
-                                    <>
-                                        <div style={{ width: 1, height: 20, background: 'var(--border)', margin: '0 4px' }}></div>
-                                        <button
-                                            className={`filter-pill ${filterCategory === 'all' ? 'active' : ''}`}
-                                            onClick={() => setFilterCategory('all')}
-                                        >
-                                            All Categories
-                                        </button>
-                                        {uniqueCategories.map(cat => (
-                                            <button
-                                                key={cat}
-                                                className={`filter-pill ${filterCategory === cat ? 'active' : ''}`}
-                                                onClick={() => setFilterCategory(cat)}
-                                            >
-                                                {cat}
-                                            </button>
-                                        ))}
-                                    </>
-                                )}
+                            <div className="flex gap-2">
+                                <button className={`btn-icon ${showFilters ? 'active' : ''}`} style={{ background: showFilters ? 'var(--accent)' : 'var(--bg-card)', color: showFilters ? '#000' : 'var(--text-primary)' }} onClick={() => setShowFilters(!showFilters)}>
+                                    <Filter size={16} />
+                                </button>
+                                <button className={`sync-btn ${isSyncing ? 'syncing' : ''}`} onClick={syncLunchMoneyData} disabled={isSyncing}>
+                                    <Clock size={12} className={isSyncing ? 'spin' : ''} />
+                                    {isSyncing ? 'Syncing...' : 'Sync'}
+                                </button>
                             </div>
                         </div>
+
+                        {/* Filter Panel */}
+                        {showFilters && (
+                            <div className="filter-panel card mb-3">
+                                <div className="grid grid-cols-2 gap-3 mb-3">
+                                    <div>
+                                        <label className="text-secondary" style={{ fontSize: 10, textTransform: 'uppercase' }}>Budget Month</label>
+                                        <div className="flex gap-2 mt-1">
+                                            <select
+                                                className="input-inline w-full"
+                                                value={data.selectedMonth}
+                                                onChange={(e) => setData(prev => ({ ...prev, selectedMonth: e.target.value }))}
+                                            >
+                                                {MONTHS.map(m => <option key={m} value={m}>{m}</option>)}
+                                            </select>
+                                            <select
+                                                className="input-inline" style={{ width: 70 }}
+                                                value={data.selectedYear || new Date().getFullYear()}
+                                                onChange={(e) => setData(prev => ({ ...prev, selectedYear: Number(e.target.value) }))}
+                                            >
+                                                {[new Date().getFullYear() - 1, new Date().getFullYear()].map(y => <option key={y} value={y}>{y}</option>)}
+                                            </select>
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label className="text-secondary" style={{ fontSize: 10, textTransform: 'uppercase' }}>Category</label>
+                                        <select
+                                            className="input-inline w-full mt-1"
+                                            value={filterCategory}
+                                            onChange={(e) => setFilterCategory(e.target.value)}
+                                        >
+                                            <option value="all">All Categories</option>
+                                            {uniqueCategories.map(c => <option key={c} value={c}>{c}</option>)}
+                                        </select>
+                                    </div>
+                                </div>
+                                <div className="grid grid-cols-2 gap-3 mb-3">
+                                    <div>
+                                        <label className="text-secondary" style={{ fontSize: 10, textTransform: 'uppercase' }}>Start Date</label>
+                                        <input type="date" className="input-inline w-full mt-1" value={filterDateStart} onChange={(e) => setFilterDateStart(e.target.value)} />
+                                    </div>
+                                    <div>
+                                        <label className="text-secondary" style={{ fontSize: 10, textTransform: 'uppercase' }}>End Date</label>
+                                        <input type="date" className="input-inline w-full mt-1" value={filterDateEnd} onChange={(e) => setFilterDateEnd(e.target.value)} />
+                                    </div>
+                                </div>
+                                <div className="filter-pills flex gap-2">
+                                    <button className={`filter-pill ${filterType === 'all' ? 'active' : ''}`} onClick={() => setFilterType('all')}>All</button>
+                                    <button className={`filter-pill ${filterType === 'income' ? 'active' : ''}`} onClick={() => setFilterType('income')}>Income</button>
+                                    <button className={`filter-pill ${filterType === 'expenses' ? 'active' : ''}`} onClick={() => setFilterType('expenses')}>Expenses</button>
+                                    <button className="filter-pill" style={{ marginLeft: 'auto', background: 'transparent', border: '1px solid var(--border)' }} onClick={() => { setFilterDateStart(''); setFilterDateEnd(''); setFilterCategory('all'); setFilterType('all'); }}>Reset</button>
+                                </div>
+                            </div>
+                        )}
+
+                        {!showFilters && (
+                            <div className="mb-3">
+                                <div className="filter-pills" style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+                                    <button className={`filter-pill ${filterType === 'all' ? 'active' : ''}`} onClick={() => setFilterType('all')}>All</button>
+                                    <button className={`filter-pill ${filterType === 'income' ? 'active' : ''}`} onClick={() => setFilterType('income')}>Income</button>
+                                    <button className={`filter-pill ${filterType === 'expenses' ? 'active' : ''}`} onClick={() => setFilterType('expenses')}>Expenses</button>
+                                </div>
+                            </div>
+                        )}
 
                         <div className="card">
                             <div className="card-header">
