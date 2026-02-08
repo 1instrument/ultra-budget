@@ -254,6 +254,7 @@ export default function App() {
         bizCC: false
     });
     const [monthFilter, setMonthFilter] = useState(false);
+    const [bizRollingPeriod, setBizRollingPeriod] = useState(30); // 30, 60, or 90 days
 
     // Lock Screen State
     const [needsSetup, setNeedsSetup] = useState(() => !localStorage.getItem('ultra_pin_hash'));
@@ -336,18 +337,18 @@ export default function App() {
     }, [transactions]);
 
     // Business revenue/expense calculations filtered by selected month
-    const bizCalcs = useMemo(() => {
+    // Business revenue/expense calculations filtered by selected month and year (for Budget/Transactions)
+    const monthBizCalcs = useMemo(() => {
         const monthNum = MONTHS.indexOf(data.selectedMonth);
         const year = data.selectedYear;
 
-        // Filter transactions to selected month and business accounts
+        // Filter transactions to selected month and brand year
         const monthTxs = transactions.filter(tx => {
             const txDate = new Date(tx.date);
             return txDate.getMonth() === monthNum && txDate.getFullYear() === year;
         });
 
         const bizAccounts = ['Business Checking', 'Business CC'];
-        const bizTxs = monthTxs.filter(tx => bizAccounts.includes(tx.account_name));
 
         // Revenue: positive amounts from business checking only (income)
         const revenue = monthTxs
@@ -355,8 +356,32 @@ export default function App() {
             .reduce((sum, tx) => sum + tx.amount, 0);
 
         // Expenses: negative amounts from both business accounts
-        const expenses = bizTxs
-            .filter(tx => tx.amount < 0)
+        const expenses = monthTxs
+            .filter(tx => bizAccounts.includes(tx.account_name) && tx.amount < 0)
+            .reduce((sum, tx) => sum + Math.abs(tx.amount), 0);
+
+        return { revenue, expenses, profit: revenue - expenses };
+    }, [transactions, data.selectedMonth, data.selectedYear]);
+
+    // Rolling business metrics (for Dashboard)
+    const rollingBizCalcs = useMemo(() => {
+        const now = new Date();
+        const cutoff = new Date();
+        cutoff.setDate(now.getDate() - bizRollingPeriod);
+
+        const rollingTxs = transactions.filter(tx => {
+            const txDate = new Date(tx.date);
+            return txDate >= cutoff;
+        });
+
+        const bizAccounts = ['Business Checking', 'Business CC'];
+
+        const revenue = rollingTxs
+            .filter(tx => tx.account_name === 'Business Checking' && tx.amount > 0)
+            .reduce((sum, tx) => sum + tx.amount, 0);
+
+        const expenses = rollingTxs
+            .filter(tx => bizAccounts.includes(tx.account_name) && tx.amount < 0)
             .reduce((sum, tx) => sum + Math.abs(tx.amount), 0);
 
         const profit = revenue - expenses;
@@ -365,13 +390,13 @@ export default function App() {
         const isEarlyData = profit <= 500;
 
         return { revenue, expenses, profit, sustainability, isHealthy, isEarlyData };
-    }, [transactions, data.selectedMonth, data.selectedYear, data.salary]);
+    }, [transactions, bizRollingPeriod, data.salary]);
 
-    // Use bizCalcs values (fallback to stored data if no transactions yet)
-    const profit = bizCalcs.profit || (currentBiz.revenue - currentBiz.expenses);
-    const sustainability = bizCalcs.sustainability;
-    const isHealthy = bizCalcs.isHealthy;
-    const isEarlyData = bizCalcs.isEarlyData;
+    // Use rolling values for Dashboard metrics
+    const profit = rollingBizCalcs.profit;
+    const sustainability = rollingBizCalcs.sustainability;
+    const isHealthy = rollingBizCalcs.isHealthy;
+    const isEarlyData = rollingBizCalcs.isEarlyData;
 
     // Insight and bonus calculations (depend on profit)
     const insight = getInsight(profit, sustainability, QUARTILE, data.salary);
@@ -590,10 +615,18 @@ export default function App() {
                         </div>
 
 
-                        {/* Month Pills */}
-                        <div className="month-pills">
-                            <button className="month-pill year-pill" style={{ background: 'var(--accent-primary)', color: '#000', fontWeight: 700, minWidth: 50 }} onClick={() => setData(p => ({ ...p, selectedYear: p.selectedYear === new Date().getFullYear() ? new Date().getFullYear() - 1 : new Date().getFullYear() }))}>{data.selectedYear || new Date().getFullYear()}</button>
-                            {MONTHS.map(m => <button key={m} className={`month-pill ${data.selectedMonth === m ? 'active' : ''}`} onClick={() => selectMonth(m)}>{m}</button>)}
+                        {/* Rolling Period Toggles */}
+                        <div className="month-pills" style={{ marginBottom: 16 }}>
+                            {[30, 60, 90].map(period => (
+                                <button
+                                    key={period}
+                                    className={`month-pill ${bizRollingPeriod === period ? 'active' : ''}`}
+                                    onClick={() => setBizRollingPeriod(period)}
+                                    style={{ flex: 1, textTransform: 'none' }}
+                                >
+                                    Last {period} Days
+                                </button>
+                            ))}
                         </div>
 
                         {/* Sustainability + Insight */}
@@ -729,14 +762,23 @@ export default function App() {
                         </div>
 
                         {/* Month Pills */}
-                        <div className="month-pills">
-                            {MONTHS.map(m => <button key={m} className={`month-pill ${data.selectedMonth === m ? 'active' : ''}`} onClick={() => selectMonth(m)}>{m}</button>)}
+                        <div className="month-pills" style={{ display: 'flex', gap: 8 }}>
+                            <button
+                                className="month-pill year-pill"
+                                style={{ background: 'var(--accent-primary)', color: '#000', fontWeight: 700, minWidth: 60 }}
+                                onClick={() => setData(p => ({ ...p, selectedYear: p.selectedYear === new Date().getFullYear() ? new Date().getFullYear() - 1 : new Date().getFullYear() }))}
+                            >
+                                {data.selectedYear || new Date().getFullYear()}
+                            </button>
+                            <div style={{ display: 'flex', gap: 8, overflowX: 'auto', paddingBottom: 4 }}>
+                                {MONTHS.map(m => <button key={m} className={`month-pill ${data.selectedMonth === m ? 'active' : ''}`} onClick={() => selectMonth(m)}>{m}</button>)}
+                            </div>
                         </div>
 
                         {/* Salary Input */}
                         <div className="card mb-3">
                             <span className="card-title">Salary Draw</span>
-                            <input type="number" className="input-inline stat-medium mt-2" value={data.salary} onChange={(e) => updateField('salary', e.target.value)} />
+                            <input type="number" className="input-inline stat-medium mt-2" style={{ fontSize: 24, fontWeight: 700 }} value={data.salary} onChange={(e) => updateField('salary', e.target.value)} />
                         </div>
 
                         {/* Business */}
@@ -744,15 +786,15 @@ export default function App() {
                             <div className="card-header"><span className="card-title">Business • {data.selectedMonth}</span></div>
                             <div className="bento-grid">
                                 <div>
-                                    <label className="text-secondary" style={{ fontSize: 9, textTransform: 'uppercase' }}>Revenue</label>
-                                    <div className="input-field mt-2" style={{ display: 'flex', alignItems: 'center', height: 34, background: 'var(--card-bg)', border: '1px solid var(--border)', color: 'var(--text-primary)' }}>
-                                        {fmt(currentBiz.revenue)}
+                                    <label className="text-secondary" style={{ fontSize: 10, textTransform: 'uppercase' }}>Revenue</label>
+                                    <div className="input-field mt-2" style={{ display: 'flex', alignItems: 'center', height: 44, background: 'var(--card-bg)', border: '1px solid var(--border)', color: 'var(--text-primary)', fontSize: 20, fontWeight: 700 }}>
+                                        {fmt(monthBizCalcs.revenue || currentBiz.revenue)}
                                     </div>
                                 </div>
                                 <div>
-                                    <label className="text-secondary" style={{ fontSize: 9, textTransform: 'uppercase' }}>Expenses</label>
-                                    <div className="input-field mt-2" style={{ display: 'flex', alignItems: 'center', height: 34, background: 'var(--card-bg)', border: '1px solid var(--border)', color: 'var(--text-primary)' }}>
-                                        {fmt(currentBiz.expenses)}
+                                    <label className="text-secondary" style={{ fontSize: 10, textTransform: 'uppercase' }}>Expenses</label>
+                                    <div className="input-field mt-2" style={{ display: 'flex', alignItems: 'center', height: 44, background: 'var(--card-bg)', border: '1px solid var(--border)', color: 'var(--text-primary)', fontSize: 20, fontWeight: 700 }}>
+                                        {fmt(monthBizCalcs.expenses || currentBiz.expenses)}
                                     </div>
                                 </div>
                             </div>
@@ -774,24 +816,24 @@ export default function App() {
                                         <div className="group-header">
                                             <div className="group-name-row" style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1 }}>
                                                 <div className="group-indicator" style={{ background: g.color }} />
-                                                <input className="input-inline group-name" style={{ fontWeight: 700, fontSize: 13 }} value={g.name} onChange={(e) => updateGroup(g.id, 'name', e.target.value)} />
+                                                <input className="input-inline group-name" style={{ fontWeight: 700, fontSize: 18, color: 'var(--text-primary)' }} value={g.name} onChange={(e) => updateGroup(g.id, 'name', e.target.value)} />
                                             </div>
-                                            <div className="group-meta" onClick={() => toggleGroup(g.id)} style={{ cursor: 'pointer' }}>
-                                                <span className="group-percent">{pct(gTotal)}%</span>
-                                                <span className="group-total">{fmt(gTotal)}</span>
-                                                {g.collapsed ? <ChevronRight size={14} className="text-dim" /> : <ChevronDown size={14} className="text-dim" />}
+                                            <div className="group-meta" onClick={() => toggleGroup(g.id)} style={{ cursor: 'pointer', gap: 12 }}>
+                                                <span className="group-percent" style={{ fontSize: 13 }}>{pct(gTotal)}%</span>
+                                                <span className="group-total" style={{ fontSize: 16 }}>{fmt(gTotal)}</span>
+                                                {g.collapsed ? <ChevronRight size={18} className="text-dim" /> : <ChevronDown size={18} className="text-dim" />}
                                             </div>
 
                                         </div>
                                         {!g.collapsed && (
                                             <div className="group-content">
                                                 {g.items.map(i => (
-                                                    <div key={i.id} className="item-row">
-                                                        <input className="input-inline item-name" value={i.name} onChange={(e) => updateItem(g.id, i.id, 'name', e.target.value)} />
-                                                        <div className="item-meta">
-                                                            <span className="item-percent">{pct(i.amount)}%</span>
-                                                            <div className="flex items-center"><span className="text-dim" style={{ fontSize: 10, marginRight: 2 }}>$</span>
-                                                                <input type="number" className="input-inline item-amount" style={{ width: 55, textAlign: 'right' }} value={i.amount} onChange={(e) => updateItem(g.id, i.id, 'amount', e.target.value)} />
+                                                    <div key={i.id} className="item-row" style={{ padding: '12px 0' }}>
+                                                        <input className="input-inline item-name" style={{ fontSize: 17 }} value={i.name} onChange={(e) => updateItem(g.id, i.id, 'name', e.target.value)} />
+                                                        <div className="item-meta" style={{ gap: 12 }}>
+                                                            <span className="item-percent" style={{ fontSize: 13, color: 'var(--text-dim)' }}>{pct(i.amount)}%</span>
+                                                            <div className="flex items-center"><span className="text-dim" style={{ fontSize: 14, marginRight: 2 }}>$</span>
+                                                                <input type="number" className="input-inline item-amount" style={{ width: 80, textAlign: 'right', fontSize: 18, fontWeight: 600 }} value={i.amount} onChange={(e) => updateItem(g.id, i.id, 'amount', e.target.value)} />
                                                             </div>
                                                         </div>
                                                         <button className="btn-icon btn-delete" style={{ width: 24, height: 24, marginLeft: 12 }} onClick={() => deleteItem(g.id, i.id)}><Trash2 size={11} /></button>
@@ -823,44 +865,44 @@ export default function App() {
                                 return (
                                     <div key={g.id} className="card mb-2" style={{ borderLeft: '3px solid var(--accent-teal)' }}>
                                         <div className="flex justify-between items-start mb-2">
-                                            <input className="input-inline" style={{ fontWeight: 600, fontSize: 13, width: '150px' }} value={g.name} onChange={(e) => updateGoal(g.id, 'name', e.target.value)} />
+                                            <input className="input-inline" style={{ fontWeight: 700, fontSize: 18, width: '200px' }} value={g.name} onChange={(e) => updateGoal(g.id, 'name', e.target.value)} />
                                             <button className="btn-icon btn-delete" onClick={() => deleteGoal(g.id)}><Trash2 size={11} /></button>
                                         </div>
 
-                                        <div className="bento-grid mb-2">
+                                        <div className="bento-grid mb-3">
                                             <div>
-                                                <label className="text-secondary" style={{ fontSize: 9, textTransform: 'uppercase' }}>Target</label>
+                                                <label className="text-secondary" style={{ fontSize: 10, textTransform: 'uppercase' }}>Target</label>
                                                 <div className="flex items-center mt-1">
-                                                    <span className="text-dim" style={{ fontSize: 10, marginRight: 2 }}>$</span>
-                                                    <input type="number" className="input-inline" style={{ fontSize: 12, width: 60 }} value={g.target} onChange={(e) => updateGoal(g.id, 'target', e.target.value)} />
+                                                    <span className="text-dim" style={{ fontSize: 14, marginRight: 2 }}>$</span>
+                                                    <input type="number" className="input-inline" style={{ fontSize: 16, width: 80, fontWeight: 600 }} value={g.target} onChange={(e) => updateGoal(g.id, 'target', e.target.value)} />
                                                 </div>
                                             </div>
                                             <div>
-                                                <label className="text-secondary" style={{ fontSize: 9, textTransform: 'uppercase' }}>Start Bal</label>
+                                                <label className="text-secondary" style={{ fontSize: 10, textTransform: 'uppercase' }}>Start Bal</label>
                                                 <div className="flex items-center mt-1">
-                                                    <span className="text-dim" style={{ fontSize: 10, marginRight: 2 }}>$</span>
-                                                    <input type="number" className="input-inline" style={{ fontSize: 12, width: 60 }} value={g.startingBalance} onChange={(e) => updateGoal(g.id, 'startingBalance', e.target.value)} />
+                                                    <span className="text-dim" style={{ fontSize: 14, marginRight: 2 }}>$</span>
+                                                    <input type="number" className="input-inline" style={{ fontSize: 16, width: 80, fontWeight: 600 }} value={g.startingBalance} onChange={(e) => updateGoal(g.id, 'startingBalance', e.target.value)} />
                                                 </div>
                                             </div>
                                             <div>
-                                                <label className="text-secondary" style={{ fontSize: 9, textTransform: 'uppercase' }}>{data.selectedMonth} Contrib</label>
+                                                <label className="text-secondary" style={{ fontSize: 10, textTransform: 'uppercase' }}>{data.selectedMonth} Contrib</label>
                                                 <div className="flex items-center mt-1">
-                                                    <span className="text-dim" style={{ fontSize: 10, marginRight: 2 }}>$</span>
-                                                    <input type="number" className="input-inline text-teal" style={{ fontSize: 12, width: 60, fontWeight: 700 }} value={currentContribution} onChange={(e) => updateGoalContribution(g.id, data.selectedMonth, e.target.value)} />
+                                                    <span className="text-dim" style={{ fontSize: 14, marginRight: 2 }}>$</span>
+                                                    <input type="number" className="input-inline text-teal" style={{ fontSize: 18, width: 90, fontWeight: 800 }} value={currentContribution} onChange={(e) => updateGoalContribution(g.id, data.selectedMonth, e.target.value)} />
                                                 </div>
                                             </div>
                                         </div>
 
-                                        <div className="progress-container mb-2" style={{ height: 6 }}>
+                                        <div className="progress-container mb-2" style={{ height: 8 }}>
                                             <div className="progress-fill bg-teal" style={{ width: `${Math.min(progress, 100)}%` }} />
                                         </div>
 
                                         <div className="flex justify-between items-center">
-                                            <span style={{ fontSize: 10, color: 'var(--text-secondary)' }}>
+                                            <span style={{ fontSize: 13, color: 'var(--text-secondary)', fontWeight: 500 }}>
                                                 {fmt(totalSaved)} of {fmt(g.target)} ({progress.toFixed(0)}%)
                                             </span>
                                             {monthsToGoal !== null && (
-                                                <span className="text-teal" style={{ fontSize: 10, fontWeight: 600 }}>
+                                                <span className="text-teal" style={{ fontSize: 13, fontWeight: 700 }}>
                                                     {monthsToGoal} months left
                                                 </span>
                                             )}
@@ -902,6 +944,14 @@ export default function App() {
 
                         {/* Filter Bar */}
                         <div style={{ display: 'flex', gap: 8, marginBottom: 12, alignItems: 'center' }}>
+                            <button
+                                className="month-pill year-pill"
+                                style={{ background: 'var(--accent-primary)', color: '#000', fontWeight: 700, minWidth: 60, height: 42, padding: '0 12px' }}
+                                onClick={() => setData(p => ({ ...p, selectedYear: p.selectedYear === new Date().getFullYear() ? new Date().getFullYear() - 1 : new Date().getFullYear() }))}
+                            >
+                                {data.selectedYear || new Date().getFullYear()}
+                            </button>
+
                             {/* Account Filters - styled like tx-icon */}
                             <button
                                 onClick={() => setAccountFilters(f => ({ ...f, personalChk: !f.personalChk }))}
@@ -947,17 +997,16 @@ export default function App() {
                             >
                                 <span style={{ fontSize: 12, fontWeight: 700 }} className={accountFilters.bizCC ? 'text-blue' : 'text-dim'}>CC</span>
                             </button>
-                            {/* Month Filter */}
+
                             <button
-                                onClick={() => setMonthFilter(m => !m)}
-                                style={{
-                                    padding: '6px 10px', fontSize: 11, fontWeight: 600,
-                                    background: monthFilter ? 'var(--accent-amber)' : 'var(--bg-input)',
-                                    color: monthFilter ? '#000' : 'var(--text-dim)',
-                                    border: 'none', borderRadius: 8, cursor: 'pointer', marginLeft: 'auto'
+                                className={`filter-tag ${monthFilter ? 'active' : ''}`}
+                                style={{ flex: 1, padding: '0 12px', height: 42, background: monthFilter ? 'var(--accent-teal)' : 'var(--bg-card)', color: monthFilter ? '#000' : 'var(--text-secondary)' }}
+                                onClick={() => {
+                                    setMonthFilter(!monthFilter);
+                                    if (txLimit < 50) setTxLimit(50);
                                 }}
                             >
-                                {monthFilter ? `${data.selectedMonth} Only` : 'All Months'}
+                                {monthFilter ? `${data.selectedMonth}` : 'All Months'}
                             </button>
                         </div>
 
@@ -970,11 +1019,18 @@ export default function App() {
                                     let filtered = transactions;
 
                                     // Month filter
+                                    // Year filter (Always respect selectedYear)
+                                    filtered = filtered.filter(tx => {
+                                        const txDate = new Date(tx.date);
+                                        return txDate.getFullYear() === data.selectedYear;
+                                    });
+
+                                    // Month filter
                                     if (monthFilter) {
                                         const monthNum = MONTHS.indexOf(data.selectedMonth);
                                         filtered = filtered.filter(tx => {
                                             const txDate = new Date(tx.date);
-                                            return txDate.getMonth() === monthNum && txDate.getFullYear() === data.selectedYear;
+                                            return txDate.getMonth() === monthNum;
                                         });
                                     }
 
@@ -1001,12 +1057,18 @@ export default function App() {
                                     const anyAccountFilter = Object.values(accountFilters).some(v => v);
                                     let filtered = transactions;
 
+                                    // Year filter (Always respect selectedYear)
+                                    filtered = filtered.filter(tx => {
+                                        const txDate = new Date(tx.date);
+                                        return txDate.getFullYear() === data.selectedYear;
+                                    });
+
                                     // Month filter
                                     if (monthFilter) {
                                         const monthNum = MONTHS.indexOf(data.selectedMonth);
                                         filtered = filtered.filter(tx => {
                                             const txDate = new Date(tx.date);
-                                            return txDate.getMonth() === monthNum && txDate.getFullYear() === data.selectedYear;
+                                            return txDate.getMonth() === monthNum;
                                         });
                                     }
 
@@ -1058,11 +1120,18 @@ export default function App() {
                                     // Same filter logic for load more button
                                     const anyAccountFilter = Object.values(accountFilters).some(v => v);
                                     let filtered = transactions;
+                                    // Year filter (Always respect selectedYear)
+                                    filtered = filtered.filter(tx => {
+                                        const txDate = new Date(tx.date);
+                                        return txDate.getFullYear() === data.selectedYear;
+                                    });
+
+                                    // Month filter
                                     if (monthFilter) {
                                         const monthNum = MONTHS.indexOf(data.selectedMonth);
                                         filtered = filtered.filter(tx => {
                                             const txDate = new Date(tx.date);
-                                            return txDate.getMonth() === monthNum && txDate.getFullYear() === data.selectedYear;
+                                            return txDate.getMonth() === monthNum;
                                         });
                                     }
                                     if (anyAccountFilter) {
