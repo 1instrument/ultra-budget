@@ -68,16 +68,10 @@ const INITIAL_STATE = {
     ]
 };
 
-const PLACEHOLDER_TXS = [
-    { id: 1, name: 'Starbucks', category: 'Dining', amount: -6.45, date: 'Feb 6', icon: Coffee },
-    { id: 2, name: 'Amazon', category: 'Shopping', amount: -89.99, date: 'Feb 5', icon: ShoppingBag },
-    { id: 3, name: 'Electric Bill', category: 'Utilities', amount: -142.30, date: 'Feb 4', icon: Zap },
-    { id: 4, name: 'Gas Station', category: 'Auto', amount: -52.00, date: 'Feb 3', icon: Car },
-    { id: 5, name: 'Client Payment', category: 'Income', amount: 2500.00, date: 'Feb 2', icon: CreditCard },
-    { id: 6, name: 'Mortgage', category: 'Home', amount: -960.00, date: 'Feb 1', icon: Home },
-    { id: 7, name: 'Grocery Store', category: 'Groceries', amount: -127.84, date: 'Jan 31', icon: ShoppingBag },
-    { id: 8, name: 'Freelance Project', category: 'Income', amount: 1800.00, date: 'Jan 30', icon: CreditCard },
-];
+
+// Start with empty transactions - real data comes from Lunch Money sync
+const PLACEHOLDER_TXS = [];
+
 
 function getInsight(profit, sustainability, quartile, salary) {
     if (quartile === 1) {
@@ -126,6 +120,118 @@ function ConfirmationModal({ isOpen, message, onConfirm, onCancel }) {
     );
 }
 
+// Simple hash function for PIN (not cryptographically secure, but sufficient for client-side gating)
+const hashPin = (pin) => {
+    let hash = 0;
+    for (let i = 0; i < pin.length; i++) {
+        const char = pin.charCodeAt(i);
+        hash = ((hash << 5) - hash) + char;
+        hash = hash & hash; // Convert to 32bit integer
+    }
+    return hash.toString(16);
+};
+
+function SetupPin({ onComplete }) {
+    const [pin, setPin] = useState('');
+    const [confirm, setConfirm] = useState('');
+    const [error, setError] = useState('');
+
+    const handleSubmit = (e) => {
+        e.preventDefault();
+        if (pin.length < 4) {
+            setError('PIN must be at least 4 digits');
+            return;
+        }
+        if (pin !== confirm) {
+            setError('PINs do not match');
+            return;
+        }
+        localStorage.setItem('ultra_pin_hash', hashPin(pin));
+        sessionStorage.setItem('ultra_unlocked', 'true');
+        onComplete();
+    };
+
+    return (
+        <div className="lock-screen">
+            <div className="lock-card">
+                <div className="lock-icon">🔐</div>
+                <div className="lock-title">Create Your PIN</div>
+                <div className="lock-subtitle">Secure your budget dashboard</div>
+                <form onSubmit={handleSubmit}>
+                    <input
+                        type="password"
+                        inputMode="numeric"
+                        pattern="[0-9]*"
+                        value={pin}
+                        onChange={(e) => setPin(e.target.value.replace(/\D/g, ''))}
+                        placeholder="Enter 4-6 digit PIN"
+                        autoFocus
+                        maxLength={6}
+                        className="lock-input"
+                    />
+                    <input
+                        type="password"
+                        inputMode="numeric"
+                        pattern="[0-9]*"
+                        value={confirm}
+                        onChange={(e) => setConfirm(e.target.value.replace(/\D/g, ''))}
+                        placeholder="Confirm PIN"
+                        maxLength={6}
+                        className="lock-input"
+                    />
+                    {error && <div className="lock-error">{error}</div>}
+                    <button type="submit" className="lock-btn">Set PIN</button>
+                </form>
+            </div>
+        </div>
+    );
+}
+
+function LockScreen({ onUnlock }) {
+    const [pin, setPin] = useState('');
+    const [error, setError] = useState('');
+    const [attempts, setAttempts] = useState(0);
+
+    const handleSubmit = (e) => {
+        e.preventDefault();
+        const storedHash = localStorage.getItem('ultra_pin_hash');
+        if (hashPin(pin) === storedHash) {
+            sessionStorage.setItem('ultra_unlocked', 'true');
+            onUnlock();
+        } else {
+            setAttempts(a => a + 1);
+            setError(`Incorrect PIN${attempts >= 2 ? ` (${attempts + 1} attempts)` : ''}`);
+            setPin('');
+        }
+    };
+
+    return (
+        <div className="lock-screen">
+            <div className="lock-card">
+                <div className="lock-icon">🔒</div>
+                <div className="lock-title">Ultra Budget</div>
+                <div className="lock-subtitle">Enter PIN to unlock</div>
+                <form onSubmit={handleSubmit}>
+                    <input
+                        type="password"
+                        inputMode="numeric"
+                        pattern="[0-9]*"
+                        value={pin}
+                        onChange={(e) => setPin(e.target.value.replace(/\D/g, ''))}
+                        placeholder="Enter PIN"
+                        autoFocus
+                        maxLength={6}
+                        className="lock-input"
+                    />
+                    {error && <div className="lock-error">{error}</div>}
+                    <button type="submit" className="lock-btn">Unlock</button>
+                </form>
+            </div>
+        </div>
+    );
+}
+
+
 export default function App() {
 
     const [page, setPage] = useState('dashboard');
@@ -135,7 +241,11 @@ export default function App() {
     const [isSyncing, setIsSyncing] = useState(false);
     const [transactions, setTransactions] = useState(PLACEHOLDER_TXS);
 
-    // Modal State
+    // Lock Screen State
+    const [needsSetup, setNeedsSetup] = useState(() => !localStorage.getItem('ultra_pin_hash'));
+    const [isLocked, setIsLocked] = useState(() => sessionStorage.getItem('ultra_unlocked') !== 'true');
+
+    // Modal State - MUST be before any conditional returns (React hooks rule)
     const [confirmModal, setConfirmModal] = useState({ isOpen: false, message: '', onConfirm: null });
     const [data, setData] = useState(() => {
         const saved = localStorage.getItem('ultra_budget_v4');
@@ -207,6 +317,31 @@ export default function App() {
         return { groups, total };
     }, [transactions]);
 
+    // Transaction filtering (must be before gating)
+    const uniqueCategories = useMemo(() => {
+        const cats = [...new Set(transactions.map(tx => tx.category))].filter(c => c !== 'Income');
+        return cats.sort();
+    }, [transactions]);
+
+    const filteredTxs = useMemo(() => {
+        let txs = transactions;
+        // Filter by type
+        if (filterType === 'income') txs = txs.filter(tx => tx.amount > 0);
+        else if (filterType === 'expenses') txs = txs.filter(tx => tx.amount < 0);
+        // Filter by category
+        if (filterCategory !== 'all') txs = txs.filter(tx => tx.category === filterCategory);
+        return txs;
+    }, [transactions, filterType, filterCategory]);
+
+    // Gate the app behind PIN - AFTER all hooks are defined
+    if (needsSetup) {
+        return <SetupPin onComplete={() => { setNeedsSetup(false); setIsLocked(false); }} />;
+    }
+    if (isLocked) {
+        return <LockScreen onUnlock={() => setIsLocked(false)} />;
+    }
+
+
     const requestConfirm = (message, action) => {
         setConfirmModal({
             isOpen: true,
@@ -248,36 +383,19 @@ export default function App() {
     const fmt = (n) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(n);
     const pct = (a) => data.salary > 0 ? ((a / data.salary) * 100).toFixed(0) : 0;
 
-    // Transaction filtering
-    const uniqueCategories = useMemo(() => {
-        const cats = [...new Set(transactions.map(tx => tx.category))].filter(c => c !== 'Income');
-        return cats.sort();
-    }, [transactions]);
-
-    const filteredTxs = useMemo(() => {
-        let txs = transactions;
-        // Filter by type
-        if (filterType === 'income') txs = txs.filter(tx => tx.amount > 0);
-        else if (filterType === 'expenses') txs = txs.filter(tx => tx.amount < 0);
-        // Filter by category
-        if (filterCategory !== 'all') txs = txs.filter(tx => tx.category === filterCategory);
-        return txs;
-    }, [transactions, filterType, filterCategory]);
 
     const syncLunchMoneyData = async () => {
-        const apiKey = import.meta.env.VITE_LUNCH_MONEY_API_KEY;
-        if (!apiKey) {
-            alert('Please add VITE_LUNCH_MONEY_API_KEY to your environment variables or Vercel settings.');
-            return;
-        }
+
+
 
         setIsSyncing(true);
         try {
             const start = new Date(new Date().getFullYear(), MONTHS.indexOf(data.selectedMonth), 1).toISOString().split('T')[0];
             const end = new Date(new Date().getFullYear(), MONTHS.indexOf(data.selectedMonth) + 1, 0).toISOString().split('T')[0];
 
-            const response = await fetch(`https://dev.lunchmoney.app/v1/transactions?start_date=${start}&end_date=${end}`, {
-                headers: { 'Authorization': `Bearer ${apiKey}` }
+            // Call our own Vercel API route with secret header
+            const response = await fetch(`/api/lunch-money?start_date=${start}&end_date=${end}`, {
+                headers: { 'x-ultra-secret': 'ultra-budget-2024-secure' }
             });
             const json = await response.json();
 

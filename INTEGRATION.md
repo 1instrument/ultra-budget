@@ -33,8 +33,9 @@ Sync your real-world transactions with your budget.
    - Generate an **Access Token**.
 2. **Add to Vercel**:
    - In your Vercel project settings, go to **Environment Variables**.
-   - Add a new variable: `VITE_LUNCH_MONEY_API_KEY`.
+   - Add a new variable: `LUNCH_MONEY_API_KEY`.
    - Paste your token.
+   - **Note**: This key is kept secure on the server and is NOT exposed to the browser.
 3. **Redeploy**:
    - Vercel will automatically trigger a build, and your app will now have access to your live data.
 
