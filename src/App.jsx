@@ -421,7 +421,8 @@ export default function App() {
                     const isBusiness = accountName?.toLowerCase().includes('business');
                     const isCC = accountName?.toLowerCase().includes('cc') || accountName?.toLowerCase().includes('credit');
                     return {
-                        icon: isCC ? CreditCard : (isBusiness ? Building2 : Wallet),
+                        icon: isBusiness ? Building2 : Wallet,
+                        isCC: isCC,
                         colorClass: isBusiness ? 'text-blue' : 'text-green'
                     };
                 };
@@ -434,7 +435,7 @@ export default function App() {
                         amount = -amount;
                     }
 
-                    const { icon, colorClass } = getIconAndColor(t.account_name);
+                    const { icon, isCC, colorClass } = getIconAndColor(t.account_name);
 
                     mapped.push({
                         id: t.id,
@@ -444,6 +445,7 @@ export default function App() {
                         date: t.date,
                         account_name: t.account_name || 'Unknown',
                         icon: icon,
+                        isCC: isCC,
                         colorClass: colorClass,
                         raw_amount: t.amount // Keep raw for debug
                     });
@@ -861,7 +863,11 @@ export default function App() {
                                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                                             <div style={{ display: 'flex', alignItems: 'center' }}>
                                                 <div className={`tx-icon ${tx.colorClass === 'text-blue' ? 'tx-icon-blue' : 'tx-icon-green'}`}>
-                                                    <tx.icon size={16} className={tx.colorClass} />
+                                                    {tx.isCC ? (
+                                                        <span className={tx.colorClass} style={{ fontSize: 12, fontWeight: 700 }}>CC</span>
+                                                    ) : (
+                                                        <tx.icon size={16} className={tx.colorClass} />
+                                                    )}
                                                 </div>
                                                 <div className="tx-details">
                                                     <div className="tx-name">{tx.name}</div>
