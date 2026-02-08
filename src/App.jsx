@@ -446,7 +446,8 @@ export default function App() {
                         amount: amount,
                         date: t.date,
                         account_name: t.account_name || 'Unknown',
-                        icon: amount > 0 ? CreditCard : Receipt
+                        icon: amount > 0 ? CreditCard : Receipt,
+                        raw: t // Store raw data for debugging
                     });
                 });
 
@@ -1018,6 +1019,13 @@ export default function App() {
                                     </button>
                                 )}
                             </div>
+                        </div>
+
+                        <div className="mb-4">
+                            <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-dim)', marginBottom: 4 }}>DEBUG DATA (API RAW)</div>
+                            <pre style={{ fontSize: 9, overflow: 'auto', background: '#111', color: '#0f0', padding: 8, borderRadius: 8, maxHeight: 200 }}>
+                                {JSON.stringify(filteredTxs.slice(0, 3).map(t => t.raw), null, 2)}
+                            </pre>
                         </div>
                     </>
                 ) : (
