@@ -430,15 +430,30 @@ export default function App() {
 
             // Update transactions
             if (txJson.transactions) {
-                const mapped = txJson.transactions.map(t => ({
-                    id: t.id,
-                    name: t.payee,
-                    category: t.category_name || 'Uncategorized',
-                    amount: Number(t.amount),
-                    date: t.date,
-                    account_name: t.account_name || 'Unknown',
-                    icon: t.amount > 0 ? CreditCard : Receipt
-                }));
+                const seenIds = new Set();
+                const mapped = [];
+
+                txJson.transactions.forEach(t => {
+                    if (seenIds.has(t.id)) return;
+                    seenIds.add(t.id);
+
+                    let amount = Number(t.amount);
+                    // Fix: Force 'Deposit' to be positive (Income)
+                    if (t.payee && t.payee.toLowerCase().includes('deposit') && amount < 0) {
+                        amount = Math.abs(amount);
+                    }
+
+                    mapped.push({
+                        id: t.id,
+                        name: t.payee,
+                        category: t.category_name || 'Uncategorized',
+                        amount: amount,
+                        date: t.date,
+                        account_name: t.account_name || 'Unknown',
+                        icon: amount > 0 ? CreditCard : Receipt // Icon logic based on fixed amount
+                    });
+                });
+
                 setTransactions(mapped);
 
                 // Calculate business revenue (Checking only to avoid CC payments counting as income)
