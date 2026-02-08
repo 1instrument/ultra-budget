@@ -881,25 +881,32 @@ export default function App() {
 
                         {/* Filters */}
                         <div className="mb-3">
-                            <div className="filter-pills mb-2">
+                            <div className="filter-pills" style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
                                 <button className={`filter-pill ${filterType === 'all' ? 'active' : ''}`} onClick={() => { setFilterType('all'); setFilterCategory('all'); }}>All</button>
                                 <button className={`filter-pill ${filterType === 'income' ? 'active' : ''}`} onClick={() => { setFilterType('income'); setFilterCategory('all'); }}>Income</button>
                                 <button className={`filter-pill ${filterType === 'expenses' ? 'active' : ''}`} onClick={() => { setFilterType('expenses'); setFilterCategory('all'); }}>Expenses</button>
+
+                                {filterType === 'expenses' && (
+                                    <>
+                                        <div style={{ width: 1, height: 20, background: 'var(--border)', margin: '0 4px' }}></div>
+                                        <button
+                                            className={`filter-pill ${filterCategory === 'all' ? 'active' : ''}`}
+                                            onClick={() => setFilterCategory('all')}
+                                        >
+                                            All Categories
+                                        </button>
+                                        {uniqueCategories.map(cat => (
+                                            <button
+                                                key={cat}
+                                                className={`filter-pill ${filterCategory === cat ? 'active' : ''}`}
+                                                onClick={() => setFilterCategory(cat)}
+                                            >
+                                                {cat}
+                                            </button>
+                                        ))}
+                                    </>
+                                )}
                             </div>
-                            {filterType === 'expenses' && (
-                                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                                    <Filter size={14} className="text-teal" />
-                                    <select
-                                        className="input-field"
-                                        style={{ fontSize: 11, padding: '6px 8px', flex: 1 }}
-                                        value={filterCategory}
-                                        onChange={(e) => setFilterCategory(e.target.value)}
-                                    >
-                                        <option value="all">All Categories</option>
-                                        {uniqueCategories.map(cat => <option key={cat} value={cat}>{cat}</option>)}
-                                    </select>
-                                </div>
-                            )}
                         </div>
 
                         <div className="card">
