@@ -35,6 +35,7 @@ const createInitialMonthlyData = () => {
 };
 
 const INITIAL_STATE = {
+    selectedYear: new Date().getFullYear(),
     salary: 4000,
     personalBalance: 5200,
     bizBalance: 28500,
@@ -291,6 +292,13 @@ export default function App() {
         }
     }, [data]);
 
+    // Ensure selectedYear is set (migration for existing users/HMR)
+    useEffect(() => {
+        if (!data.selectedYear) {
+            setData(prev => ({ ...prev, selectedYear: new Date().getFullYear() }));
+        }
+    }, [data.selectedYear]);
+
 
 
     const currentBizKey = `${data.selectedYear}-${data.selectedMonth}`;
@@ -396,7 +404,7 @@ export default function App() {
 
         setIsSyncing(true);
         try {
-            const year = data.selectedYear;
+            const year = data.selectedYear || new Date().getFullYear();
             const monthIndex = MONTHS.indexOf(data.selectedMonth);
             const start = new Date(year, monthIndex, 1).toISOString().split('T')[0];
             const end = new Date(year, monthIndex + 1, 0).toISOString().split('T')[0];
@@ -593,7 +601,7 @@ export default function App() {
 
                         {/* Month Pills */}
                         <div className="month-pills">
-                            <button className="month-pill year-pill" style={{ background: 'var(--accent)', color: '#000', fontWeight: 700 }} onClick={() => setData(p => ({ ...p, selectedYear: p.selectedYear === new Date().getFullYear() ? new Date().getFullYear() - 1 : new Date().getFullYear() }))}>{data.selectedYear}</button>
+                            <button className="month-pill year-pill" style={{ background: 'var(--accent)', color: '#000', fontWeight: 700 }} onClick={() => setData(p => ({ ...p, selectedYear: p.selectedYear === new Date().getFullYear() ? new Date().getFullYear() - 1 : new Date().getFullYear() }))}>{data.selectedYear || new Date().getFullYear()}</button>
                             {MONTHS.map(m => <button key={m} className={`month-pill ${data.selectedMonth === m ? 'active' : ''}`} onClick={() => selectMonth(m)}>{m}</button>)}
                         </div>
 
