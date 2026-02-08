@@ -238,7 +238,7 @@ function LockScreen({ onUnlock }) {
 export default function App() {
 
     const [page, setPage] = useState('dashboard');
-    const [chartMode, setChartMode] = useState('allocation'); // 'allocation', 'actual'
+    // chartMode removed
     const [filterType, setFilterType] = useState('all'); // 'all', 'income', 'expenses'
     const [filterCategory, setFilterCategory] = useState('all'); // 'all' or specific category name
     const [isSyncing, setIsSyncing] = useState(false);
@@ -256,6 +256,7 @@ export default function App() {
             const parsed = JSON.parse(saved);
             // Migrations / Defaults for new features
             if (!parsed.selectedMonth) parsed.selectedMonth = MONTHS[CURRENT_MONTH_INDEX];
+            if (!parsed.selectedYear) parsed.selectedYear = new Date().getFullYear();
             if (!parsed.personalBalance) parsed.personalBalance = 5200;
             if (!parsed.bizBalance) parsed.bizBalance = 28500;
             if (!parsed.goals) parsed.goals = INITIAL_STATE.goals;
@@ -291,7 +292,9 @@ export default function App() {
     }, [data]);
 
 
-    const currentBiz = data.monthlyBiz[data.selectedMonth] || { revenue: 0, expenses: 0 };
+
+    const currentBizKey = `${data.selectedYear}-${data.selectedMonth}`;
+    const currentBiz = data.monthlyBiz[currentBizKey] || { revenue: 0, expenses: 0 };
     const profit = currentBiz.revenue - currentBiz.expenses;
     const sustainability = profit > 500 ? (data.salary / profit) * 100 : 0;
     const isHealthy = profit > 500 && sustainability <= 100;
@@ -393,8 +396,10 @@ export default function App() {
 
         setIsSyncing(true);
         try {
-            const start = new Date(new Date().getFullYear(), MONTHS.indexOf(data.selectedMonth), 1).toISOString().split('T')[0];
-            const end = new Date(new Date().getFullYear(), MONTHS.indexOf(data.selectedMonth) + 1, 0).toISOString().split('T')[0];
+            const year = data.selectedYear;
+            const monthIndex = MONTHS.indexOf(data.selectedMonth);
+            const start = new Date(year, monthIndex, 1).toISOString().split('T')[0];
+            const end = new Date(year, monthIndex + 1, 0).toISOString().split('T')[0];
 
             // Fetch both transactions and account balances
             const [txResponse, balanceResponse] = await Promise.all([
@@ -436,11 +441,12 @@ export default function App() {
                     .reduce((sum, t) => sum + Math.abs(Number(t.amount)), 0);
 
                 // Update monthly business data
+                // Update monthly business data
                 setData(prev => ({
                     ...prev,
                     monthlyBiz: {
                         ...prev.monthlyBiz,
-                        [prev.selectedMonth]: {
+                        [`${prev.selectedYear}-${prev.selectedMonth}`]: {
                             revenue: bizRevenue,
                             expenses: bizExpenses
                         }
@@ -587,6 +593,7 @@ export default function App() {
 
                         {/* Month Pills */}
                         <div className="month-pills">
+                            <button className="month-pill year-pill" style={{ background: 'var(--accent)', color: '#000', fontWeight: 700 }} onClick={() => setData(p => ({ ...p, selectedYear: p.selectedYear === new Date().getFullYear() ? new Date().getFullYear() - 1 : new Date().getFullYear() }))}>{data.selectedYear}</button>
                             {MONTHS.map(m => <button key={m} className={`month-pill ${data.selectedMonth === m ? 'active' : ''}`} onClick={() => selectMonth(m)}>{m}</button>)}
                         </div>
 
