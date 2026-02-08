@@ -10,19 +10,8 @@ import {
 
 import { useSwipe } from './useSwipe';
 
-const PAGE_ORDER = ['dashboard', 'budget', 'transactions', 'strategy'];
+const PAGE_ORDER = ['home', 'transactions', 'strategy'];
 const CURRENT_DAY = new Date().getDate();
-const BIZ_SAFETY_BASELINE = 25000;
-
-// Quartile: Q1 = days 1-7, Q2 = 8-15, Q3 = 16-22, Q4 = 23-31
-const getQuartile = (day) => {
-    if (day <= 7) return 1;
-    if (day <= 15) return 2;
-    if (day <= 22) return 3;
-    return 4;
-};
-
-const QUARTILE = getQuartile(CURRENT_DAY);
 
 const INITIAL_STATE = {
     salary: 4000,
@@ -64,24 +53,7 @@ const INITIAL_STATE = {
 const PLACEHOLDER_TXS = [];
 
 
-function getInsight(profit, sustainability, quartile, salary) {
-    if (quartile === 1) {
-        if (profit < 500) return { emoji: '📊', text: 'Early month. Data is just starting to come in.' };
-        return { emoji: '🚀', text: 'Strong start! Keep this momentum going.' };
-    }
-    if (quartile === 2) {
-        if (sustainability > 100) return { emoji: '💪', text: 'Behind pace, but plenty of time. Focus on closing deals.' };
-        return { emoji: '✨', text: 'On track! Pacing well for a solid month.' };
-    }
-    if (quartile === 3) {
-        if (sustainability > 120) return { emoji: '🔥', text: 'Time to hustle! Push for those last invoices.' };
-        if (sustainability > 100) return { emoji: '⚡', text: 'Almost there. One good day can flip this.' };
-        return { emoji: '🎯', text: 'Great pace. Stay consistent through the home stretch.' };
-    }
-    if (sustainability > 100) return { emoji: '💥', text: 'Final push! Every dollar counts.' };
-    if (profit > salary * 1.5) return { emoji: '🏆', text: 'Crushing it! Surplus ready for wealth distribution.' };
-    return { emoji: '✓', text: 'Healthy close. Salary is covered by profit.' };
-}
+
 
 function getDailyPrompt() {
     const now = new Date();
@@ -92,7 +64,7 @@ function getDailyPrompt() {
     if (day === 0) return { icon: Target, text: "Sunday Strategy: Review your goals for the week." };
     if (hour < 10) return { icon: Zap, text: "Morning Check: Review yesterday's transactions." };
     if (hour > 20) return { icon: Moon, text: "Nightly Reflection: How balanced was today's spending?" };
-    return { icon: ShieldCheck, text: "System Check: Sustainability looks healthy today." };
+    return { icon: ShieldCheck, text: "Budget Check: Your allocations are all set." };
 }
 
 function ConfirmationModal({ isOpen, message, onConfirm, onCancel }) {
@@ -188,9 +160,9 @@ function LockScreen({ onUnlock }) {
         e.preventDefault();
         const storedHash = localStorage.getItem('ultra_pin_hash');
         if (hashPin(pin) === storedHash) {
+            console.log('PIN correct, unlocking...');
             sessionStorage.setItem('ultra_unlocked', 'true');
-            // Use setTimeout to ensure React has time to process state change
-            setTimeout(() => onUnlock(), 0);
+            onUnlock();
         } else {
             setAttempts(a => a + 1);
             setError(`Incorrect PIN${attempts >= 2 ? ` (${attempts + 1} attempts)` : ''}`);
@@ -227,8 +199,7 @@ function LockScreen({ onUnlock }) {
 
 export default function App() {
 
-    const [page, setPage] = useState('dashboard');
-    // chartMode removed
+    const [page, setPage] = useState('home');
     const [isSyncing, setIsSyncing] = useState(false);
     const [debugMode, setDebugMode] = useState(false);
     const [transactions, setTransactions] = useState(PLACEHOLDER_TXS);
@@ -240,8 +211,6 @@ export default function App() {
         bizChk: false,
         bizCC: false
     });
-    const [bizRollingPeriod, setBizRollingPeriod] = useState(30); // 30, 60, or 90 days
-
     // Lock Screen State
     const [needsSetup, setNeedsSetup] = useState(() => !localStorage.getItem('ultra_pin_hash'));
     const [isLocked, setIsLocked] = useState(() => sessionStorage.getItem('ultra_unlocked') !== 'true');
@@ -287,12 +256,8 @@ export default function App() {
         }
     }, [data]);
 
-    // profit, sustainability, isHealthy, isEarlyData are now defined after bizCalcs useMemo
-    const currentBiz = { revenue: 0, expenses: 0 };
-    // profit, sustainability, isHealthy, isEarlyData are now defined after bizCalcs useMemo
-
+    // progress/totals calculations
     const totalPersonal = useMemo(() => data.groups.reduce((a, g) => a + g.items.reduce((s, i) => s + i.amount, 0), 0), [data.groups]);
-    // insight, isBonusEligible, potentialBonus moved after bizCalcs
 
     const dailyPrompt = getDailyPrompt();
 
@@ -310,53 +275,8 @@ export default function App() {
         return { groups, total };
     }, [transactions]);
 
-    // Rolling business metrics (Primary source of truth)
-    const bizCalcs = useMemo(() => {
-        const now = new Date();
-        const cutoff = new Date();
-        cutoff.setDate(now.getDate() - bizRollingPeriod);
-
-        const rollingTxs = transactions.filter(tx => {
-            const txDate = new Date(tx.date);
-            return txDate >= cutoff;
-        });
-
-        const bizAccounts = ['Business Checking', 'Business CC'];
-
-        const revenue = rollingTxs
-            .filter(tx => tx.account_name === 'Business Checking' && tx.amount > 0)
-            .reduce((sum, tx) => sum + tx.amount, 0);
-
-        const expenses = rollingTxs
-            .filter(tx => bizAccounts.includes(tx.account_name) && tx.amount < 0)
-            .reduce((sum, tx) => sum + Math.abs(tx.amount), 0);
-
-        const profit = revenue - expenses;
-        const sustainability = profit > 500 ? (data.salary / profit) * 100 : 0;
-        const isHealthy = profit > 500 && sustainability <= 100;
-        const isEarlyData = profit <= 500;
-
-        return { revenue, expenses, profit, sustainability, isHealthy, isEarlyData };
-    }, [transactions, bizRollingPeriod, data.salary]);
-
-    // Use rolling values for Dashboard and Budget metrics
-    const profit = bizCalcs.profit;
-    const sustainability = bizCalcs.sustainability;
-    const isHealthy = bizCalcs.isHealthy;
-    const isEarlyData = bizCalcs.isEarlyData;
-
-    // Insight and bonus calculations (depend on profit)
-    const insight = getInsight(profit, sustainability, QUARTILE, data.salary);
-    const isBonusEligible = data.bizBalance >= BIZ_SAFETY_BASELINE && profit > data.salary * 1.5;
-    const potentialBonus = isBonusEligible ? Math.floor((profit - data.salary) * 0.5) : 0;
-
     // Gate the app behind PIN - AFTER all hooks are defined
-    if (needsSetup) {
-        return <SetupPin onComplete={() => { setNeedsSetup(false); setIsLocked(false); }} />;
-    }
-    if (isLocked) {
-        return <LockScreen onUnlock={() => setIsLocked(false)} />;
-    }
+
 
 
     const requestConfirm = (message, action) => {
@@ -510,6 +430,14 @@ export default function App() {
         }
     });
 
+    // Gate the app behind PIN - AFTER all hooks are defined
+    if (needsSetup) {
+        return <SetupPin onComplete={() => { setNeedsSetup(false); setIsLocked(false); }} />;
+    }
+    if (isLocked) {
+        return <LockScreen onUnlock={() => setIsLocked(false)} />;
+    }
+
     return (
         <>
             <ConfirmationModal
@@ -519,9 +447,9 @@ export default function App() {
                 onCancel={() => setConfirmModal({ isOpen: false, message: '', onConfirm: null })}
             />
             <div className="app-container" {...swipeHandlers}>
-                {page === 'dashboard' ? (
+                {page === 'home' ? (
                     <>
-                        {/* Account Section */}
+                        {/* Home View: Balances + Salary + Allocations + Goals */}
                         <div className="account-section">
                             <div className="account-section-title">Account Balances</div>
                             <div className="account-grid">
@@ -536,178 +464,10 @@ export default function App() {
                             </div>
                         </div>
 
-
-                        {/* Rolling Period Toggles */}
-                        <div className="month-pills" style={{ marginBottom: 16 }}>
-                            {[30, 60, 90].map(period => (
-                                <button
-                                    key={period}
-                                    className={`month-pill ${bizRollingPeriod === period ? 'active' : ''}`}
-                                    onClick={() => setBizRollingPeriod(period)}
-                                    style={{ flex: 1, textTransform: 'none' }}
-                                >
-                                    Last {period} Days
-                                </button>
-                            ))}
-                        </div>
-
-                        {/* Sustainability + Insight */}
-                        <div className="bento-grid mb-3">
-                            <div className="card" style={{ marginBottom: 0 }}>
-                                <div className="card-header">
-                                    <span className="card-title">Sustainability</span>
-                                    {!isEarlyData && <div className="btn-icon" style={{ width: 22, height: 22 }}>{isHealthy ? <TrendingUp size={12} className="text-green" /> : <TrendingDown size={12} className="text-amber" />}</div>}
-                                </div>
-                                <div className={`stat-hero ${isEarlyData ? 'text-secondary' : isHealthy ? 'text-green' : 'text-amber'}`}>
-                                    {isEarlyData ? '—' : `${Math.min(sustainability, 999).toFixed(0)}%`}
-                                </div>
-                                <div className="progress-container mt-2">
-                                    <div className={`progress-fill ${isHealthy ? 'bg-green' : 'bg-teal'}`} style={{ width: isEarlyData ? '0%' : `${Math.min(sustainability, 100)}%`, background: isHealthy ? 'var(--accent-green)' : 'var(--accent-amber)' }} />
-                                </div>
-                            </div>
-                            <div className="card insight-card" style={{ marginBottom: 0 }}>
-                                <div className="card-header">
-                                    <span className="card-title">Q{QUARTILE} Insight</span>
-                                    <Lightbulb size={12} className="text-purple" />
-                                </div>
-                                <p style={{ fontSize: 11, lineHeight: 1.5, color: 'var(--text-secondary)' }}>{insight.emoji} {insight.text}</p>
-                            </div>
-                        </div>
-
-                        {/* Bonus Banner */}
-                        {isBonusEligible && (
-                            <div className="bonus-banner">
-                                <Sparkles size={16} className="text-accent" />
-                                <div>
-                                    <div style={{ fontSize: 11, fontWeight: 600 }}>Bonus Eligible</div>
-                                    <div style={{ fontSize: 10, color: 'var(--text-secondary)' }}>{fmt(potentialBonus)} for wealth distribution</div>
-                                </div>
-                            </div>
-                        )}
-
-                        {/* Salary + Profit */}
-                        <div className="bento-grid mb-1">
-                            <div className="card" style={{ marginBottom: 0 }}>
-                                <span className="card-title">Salary Draw</span>
-                                <input type="number" className="input-inline stat-medium mt-2" value={data.salary} onChange={(e) => updateField('salary', e.target.value)} />
-                            </div>
-                            <div className="card" style={{ marginBottom: 0 }}>
-                                <span className="card-title">Biz Profit • Last {bizRollingPeriod} Days</span>
-                                <div className={`stat-medium mt-2 ${profit >= 0 ? 'text-green' : 'text-red'}`}>{fmt(profit)}</div>
-                            </div>
-                        </div>
-
-                        {/* Daily Task Prompt */}
-                        <div className="prompt-card mb-3">
-                            <dailyPrompt.icon size={14} className="text-teal" />
-                            <span style={{ fontSize: 11, fontWeight: 500 }}>{dailyPrompt.text}</span>
-                        </div>
-
-
-                        {/* Warnings/Tips Card */}
-                        {(() => {
-                            if (isEarlyData) return null;
-                            if (sustainability > 100) {
-                                return (
-                                    <div className="warning-card warning mb-3">
-                                        <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 4 }}>⚠️ Overspending</div>
-                                        <div style={{ fontSize: 11, lineHeight: 1.5, color: 'var(--text-secondary)' }}>
-                                            Your salary ({fmt(data.salary)}) exceeds profit ({fmt(profit)}). Consider reducing allocations or increasing revenue.
-                                        </div>
-                                    </div>
-                                );
-                            }
-                            if (totalPersonal > data.salary) {
-                                return (
-                                    <div className="warning-card warning mb-3">
-                                        <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 4 }}>⚠️ Over-Allocated</div>
-                                        <div style={{ fontSize: 11, lineHeight: 1.5, color: 'var(--text-secondary)' }}>
-                                            Allocations ({fmt(totalPersonal)}) exceed salary ({fmt(data.salary)}). Adjust on the Budget page.
-                                        </div>
-                                    </div>
-                                );
-                            }
-                            if (sustainability >= 80 && sustainability <= 100) {
-                                return (
-                                    <div className="warning-card caution mb-3">
-                                        <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 4 }}>⚡ Close to Limit</div>
-                                        <div style={{ fontSize: 11, lineHeight: 1.5, color: 'var(--text-secondary)' }}>
-                                            You're at {sustainability.toFixed(0)}% sustainability. Small increases in spending could push you over.
-                                        </div>
-                                    </div>
-                                );
-                            }
-                            return (
-                                <div className="warning-card tip mb-3">
-                                    <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 4 }}>💡 Healthy Position</div>
-                                    <div style={{ fontSize: 11, lineHeight: 1.5, color: 'var(--text-secondary)' }}>
-                                        Your spending is sustainable at {sustainability.toFixed(0)}%. {data.bizBalance >= BIZ_SAFETY_BASELINE && 'Business reserve is strong.'}
-                                    </div>
-                                </div>
-                            );
-                        })()}
-
-                        {/* Goal Pulse (Moved to Bottom) */}
-                        {data.goals.length > 0 && (
-                            <div className="goal-pulse-section">
-                                <div className="section-header-compact">
-                                    <span style={{ fontSize: 10, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-secondary)' }}>Goal Pulse</span>
-                                </div>
-                                <div className="goal-pulse-grid">
-                                    {data.goals.map((g, idx) => {
-                                        const totalContributed = Object.values(g.monthlyContributions || {}).reduce((a, b) => a + b, 0);
-                                        const totalSaved = (g.startingBalance || 0) + totalContributed;
-                                        const progress = g.target > 0 ? (totalSaved / g.target) * 100 : 0;
-
-                                        return (
-                                            <div key={g.id} className="goal-pulse-card full">
-                                                <div className="flex justify-between items-center mb-1">
-                                                    <span className="goal-pulse-name">{g.name}</span>
-                                                    <span className="goal-pulse-pct">{progress.toFixed(0)}%</span>
-                                                </div>
-                                                <div className="progress-container" style={{ height: 4, background: 'rgba(255,255,255,0.05)' }}>
-                                                    <div className="progress-fill bg-teal" style={{ width: `${Math.min(progress, 100)}%` }} />
-                                                </div>
-                                            </div>
-                                        );
-                                    })}
-                                </div>
-                            </div>
-                        )}
-                    </>
-                ) : page === 'budget' ? (
-                    /* Budget Page */
-                    <>
-                        <div className="mb-3">
-                            <h1 style={{ fontSize: 18, fontWeight: 700, marginBottom: 4 }}>Budget & Allocations</h1>
-                            <p className="text-secondary" style={{ fontSize: 11 }}>Track business finances and salary allocations</p>
-                        </div>
-
-
-
                         {/* Salary Input */}
                         <div className="card mb-3">
                             <span className="card-title">Salary Draw</span>
                             <input type="number" className="input-inline stat-medium mt-2" style={{ fontSize: 24, fontWeight: 700 }} value={data.salary} onChange={(e) => updateField('salary', e.target.value)} />
-                        </div>
-
-                        {/* Business */}
-                        <div className="card mb-3">
-                            <div className="card-header"><span className="card-title">Business • Last {bizRollingPeriod} Days</span></div>
-                            <div className="bento-grid">
-                                <div>
-                                    <label className="text-secondary" style={{ fontSize: 10, textTransform: 'uppercase' }}>Revenue</label>
-                                    <div className="input-field mt-2" style={{ display: 'flex', alignItems: 'center', height: 44, background: 'var(--card-bg)', border: '1px solid var(--border)', color: 'var(--text-primary)', fontSize: 20, fontWeight: 700 }}>
-                                        {fmt(profit === 0 && currentBiz.revenue ? currentBiz.revenue : bizCalcs.revenue)}
-                                    </div>
-                                </div>
-                                <div>
-                                    <label className="text-secondary" style={{ fontSize: 10, textTransform: 'uppercase' }}>Expenses</label>
-                                    <div className="input-field mt-2" style={{ display: 'flex', alignItems: 'center', height: 44, background: 'var(--card-bg)', border: '1px solid var(--border)', color: 'var(--text-primary)', fontSize: 20, fontWeight: 700 }}>
-                                        {fmt(profit === 0 && currentBiz.expenses ? currentBiz.expenses : bizCalcs.expenses)}
-                                    </div>
-                                </div>
-                            </div>
                         </div>
 
                         {/* Allocations */}
@@ -733,7 +493,6 @@ export default function App() {
                                                 <span className="group-total" style={{ fontSize: 16 }}>{fmt(gTotal)}</span>
                                                 {g.collapsed ? <ChevronRight size={18} className="text-dim" /> : <ChevronDown size={18} className="text-dim" />}
                                             </div>
-
                                         </div>
                                         {!g.collapsed && (
                                             <div className="group-content">
@@ -755,7 +514,6 @@ export default function App() {
                                     </div>
                                 );
                             })}
-
                         </div>
 
                         {/* Financial Goals */}
@@ -763,7 +521,6 @@ export default function App() {
                             <div className="flex items-center justify-between mb-2" style={{ padding: '0 4px' }}>
                                 <span className="card-title">Financial Goals</span>
                             </div>
-
                             {data.goals.map(g => {
                                 const totalContributed = Object.values(g.monthlyContributions || {}).reduce((a, b) => a + b, 0);
                                 const totalSaved = (g.startingBalance || 0) + totalContributed;
@@ -778,7 +535,6 @@ export default function App() {
                                             <input className="input-inline" style={{ fontWeight: 700, fontSize: 18, width: '200px' }} value={g.name} onChange={(e) => updateGoal(g.id, 'name', e.target.value)} />
                                             <button className="btn-icon btn-delete" onClick={() => deleteGoal(g.id)}><Trash2 size={11} /></button>
                                         </div>
-
                                         <div className="bento-grid mb-3">
                                             <div>
                                                 <label className="text-secondary" style={{ fontSize: 10, textTransform: 'uppercase' }}>Target</label>
@@ -802,11 +558,9 @@ export default function App() {
                                                 </div>
                                             </div>
                                         </div>
-
                                         <div className="progress-container mb-2" style={{ height: 8 }}>
                                             <div className="progress-fill bg-teal" style={{ width: `${Math.min(progress, 100)}%` }} />
                                         </div>
-
                                         <div className="flex justify-between items-center">
                                             <span style={{ fontSize: 13, color: 'var(--text-secondary)', fontWeight: 500 }}>
                                                 {fmt(totalSaved)} of {fmt(g.target)} ({progress.toFixed(0)}%)
@@ -1021,7 +775,7 @@ export default function App() {
                                 <span style={{ fontSize: 13, fontWeight: 600 }}>Daily: 2-Minute Check-in</span>
                             </div>
                             <p className="text-secondary" style={{ fontSize: 11, lineHeight: 1.6, marginBottom: 12 }}>
-                                Every morning, open this app and glance at your sustainability %. No action required—just awareness. This single habit builds financial mindfulness.
+                                Every morning, open this app and glance at your cashflow status. No action required—just awareness. This single habit builds financial mindfulness.
                             </p>
                             <div style={{ background: 'var(--bg-input)', borderRadius: 12, padding: 12 }}>
                                 <div style={{ fontSize: 10, fontWeight: 600, color: 'var(--text-dim)', marginBottom: 8 }}>ASK YOURSELF:</div>
@@ -1045,7 +799,7 @@ export default function App() {
                             <div style={{ background: 'var(--bg-input)', borderRadius: 12, padding: 12 }}>
                                 <div style={{ fontSize: 10, fontWeight: 600, color: 'var(--text-dim)', marginBottom: 8 }}>AGENDA:</div>
                                 <div style={{ fontSize: 12, lineHeight: 1.8, color: 'var(--text-secondary)' }}>
-                                    1. Show sustainability % and profit<br />
+                                    1. Show cashflow status<br />
                                     2. Review variable spending together<br />
                                     3. Flag any big expenses coming up<br />
                                     4. Celebrate wins (even small ones)
@@ -1057,51 +811,20 @@ export default function App() {
                         <div className="card mb-3" style={{ borderLeft: '3px solid var(--accent-primary)' }}>
                             <div className="flex items-center gap-2 mb-2">
                                 <Target size={14} className="text-accent" />
-                                <span style={{ fontSize: 13, fontWeight: 600 }}>Monthly Goal</span>
+                                <span style={{ fontSize: 13, fontWeight: 600 }}>Spending Goal</span>
                             </div>
                             <p className="text-secondary" style={{ fontSize: 11, lineHeight: 1.6, marginBottom: 12 }}>
-                                Keep sustainability under 100%. When you hit a surplus month, distribute bonus to wealth accounts proportionally.
+                                Keep allocations within your salary draw. Focus on hitting your savings and debt payoff goals.
                             </p>
-                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 8 }}>
                                 <div style={{ background: 'var(--bg-input)', borderRadius: 10, padding: 10, textAlign: 'center' }}>
-                                    <div style={{ fontSize: 18, fontWeight: 700 }} className="text-green">≤100%</div>
-                                    <div style={{ fontSize: 9, color: 'var(--text-dim)', marginTop: 2 }}>SUSTAINABILITY</div>
-                                </div>
-                                <div style={{ background: 'var(--bg-input)', borderRadius: 10, padding: 10, textAlign: 'center' }}>
-                                    <div style={{ fontSize: 18, fontWeight: 700 }} className="text-accent">$25k+</div>
-                                    <div style={{ fontSize: 9, color: 'var(--text-dim)', marginTop: 2 }}>BIZ RESERVE</div>
+                                    <div style={{ fontSize: 18, fontWeight: 700 }} className="text-green">Sustainable</div>
+                                    <div style={{ fontSize: 9, color: 'var(--text-dim)', marginTop: 2 }}>CASHFLOW</div>
                                 </div>
                             </div>
                         </div>
 
-                        {/* Surplus Distribution Tool */}
-                        {potentialBonus > 0 && (
-                            <div className="card mb-3" style={{ background: 'rgba(200, 255, 0, 0.05)', border: '1px solid rgba(200, 255, 0, 0.2)' }}>
-                                <div className="flex items-center gap-2 mb-2">
-                                    <Sparkles size={14} className="text-chart-wealth" />
-                                    <span style={{ fontSize: 13, fontWeight: 600 }}>Surplus Distribution</span>
-                                </div>
-                                <div className="mb-3">
-                                    <div style={{ fontSize: 24, fontWeight: 800, color: 'var(--accent-wealth)' }}>{fmt(potentialBonus)}</div>
-                                    <div style={{ fontSize: 10, color: 'var(--text-secondary)' }}>AVAILABLE TO DISTRIBUTE</div>
-                                </div>
-                                <div style={{ background: 'rgba(0,0,0,0.2)', borderRadius: 10, padding: 12 }}>
-                                    <div style={{ fontSize: 9, fontWeight: 700, color: 'var(--text-dim)', textTransform: 'uppercase', marginBottom: 8 }}>Suggested Split:</div>
-                                    {data.goals.length > 0 ? (
-                                        <div className="flex flex-col gap-2">
-                                            {data.goals.slice(0, 2).map((g, i) => (
-                                                <div key={g.id} className="flex justify-between items-center">
-                                                    <span style={{ fontSize: 11 }}>{g.name}</span>
-                                                    <span style={{ fontSize: 11, fontWeight: 700 }}>{fmt(potentialBonus * (i === 0 ? 0.7 : 0.3))}</span>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    ) : (
-                                        <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>Add goals in the Budget page to see suggested splits.</div>
-                                    )}
-                                </div>
-                            </div>
-                        )}
+
 
                         {/* Quick Rules */}
                         <div className="card" style={{ background: 'linear-gradient(135deg, rgba(45, 212, 191, 0.08), rgba(91, 127, 255, 0.05))', border: '1px solid rgba(45, 212, 191, 0.15)' }}>
@@ -1110,9 +833,9 @@ export default function App() {
                                 <span style={{ fontSize: 13, fontWeight: 600 }}>The 3 Rules</span>
                             </div>
                             <div style={{ fontSize: 12, lineHeight: 1.9, color: 'var(--text-secondary)' }}>
-                                <strong>1. Profit First.</strong> Pay yourself only from actual profit, not revenue.<br />
-                                <strong>2. Buffer Before Bonus.</strong> Biz account stays above $25k before any extra distributions.<br />
-                                <strong>3. Communicate, Dont Control.</strong> Your wife is your partner. Share data, discuss together, decide together.
+                                <strong>1. Savings First.</strong> Always pay your future self before variable spending.<br />
+                                <strong>2. Manual Review.</strong> Never trust an automated sync blindly.<br />
+                                <strong>3. Proportionality.</strong> Wealth grows through discipline, not luck.
                             </div>
                         </div>
                     </>
