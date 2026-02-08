@@ -417,6 +417,67 @@ export default function App() {
         }
     };
 
+    const syncCategories = async () => {
+        setIsSyncing(true);
+        try {
+            const response = await fetch('/api/lunch-money-categories', {
+                headers: { 'x-ultra-secret': 'ultra-budget-2024-secure' }
+            });
+
+            if (!response.ok) throw new Error('Category sync failed');
+
+            const json = await response.json();
+
+            if (json.categories) {
+                // Auto-map categories to groups using keywords
+                const autoMap = (categoryName) => {
+                    const name = categoryName.toLowerCase();
+                    // Wealth keywords
+                    if (name.includes('saving') || name.includes('invest') || name.includes('retirement') ||
+                        name.includes('401k') || name.includes('ira') || name.includes('stock')) {
+                        return 'wealth';
+                    }
+                    // Fixed keywords
+                    if (name.includes('rent') || name.includes('mortgage') || name.includes('utilit') ||
+                        name.includes('insurance') || name.includes('loan') || name.includes('subscript')) {
+                        return 'fixed';
+                    }
+                    // Default to variable
+                    return 'variable';
+                };
+
+                // Create new groups structure
+                const newGroups = [
+                    { id: 'wealth', name: 'Wealth Building', color: '#C8FF00', collapsed: false, items: [] },
+                    { id: 'fixed', name: 'Fixed Expenses', color: '#5B7FFF', collapsed: true, items: [] },
+                    { id: 'variable', name: 'Variable Spending', color: '#2DD4BF', collapsed: true, items: [] }
+                ];
+
+                // Populate groups with categories
+                json.categories.forEach(cat => {
+                    const groupId = autoMap(cat.name);
+                    const group = newGroups.find(g => g.id === groupId);
+                    if (group) {
+                        group.items.push({
+                            id: cat.id.toString(),
+                            name: cat.name,
+                            amount: 0 // User will set budgets manually
+                        });
+                    }
+                });
+
+                // Update state
+                setData(prev => ({ ...prev, groups: newGroups }));
+                alert(`✅ Synced ${json.categories.length} categories from Lunch Money!`);
+            }
+        } catch (e) {
+            console.error('Category sync failed', e);
+            alert('Category sync failed. Make sure your API key is set in Vercel.');
+        } finally {
+            setIsSyncing(false);
+        }
+    };
+
 
     return (
         <>
@@ -640,9 +701,28 @@ export default function App() {
                 ) : page === 'budget' ? (
                     /* Budget Page */
                     <>
-                        <div className="mb-3">
-                            <h1 style={{ fontSize: 18, fontWeight: 700, marginBottom: 4 }}>Budget & Allocations</h1>
-                            <p className="text-secondary" style={{ fontSize: 11 }}>Track business finances and salary allocations</p>
+                        <div className="mb-3" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <div>
+                                <h1 style={{ fontSize: 18, fontWeight: 700, marginBottom: 4 }}>Budget & Allocations</h1>
+                                <p className="text-secondary" style={{ fontSize: 11 }}>Track business finances and salary allocations</p>
+                            </div>
+                            <button
+                                onClick={syncCategories}
+                                disabled={isSyncing}
+                                style={{
+                                    padding: '8px 12px',
+                                    fontSize: '11px',
+                                    fontWeight: 600,
+                                    background: '#C8FF00',
+                                    color: '#000',
+                                    border: 'none',
+                                    borderRadius: '8px',
+                                    cursor: isSyncing ? 'not-allowed' : 'pointer',
+                                    opacity: isSyncing ? 0.5 : 1
+                                }}
+                            >
+                                {isSyncing ? '⏳ Syncing...' : '🔄 Sync Categories'}
+                            </button>
                         </div>
 
                         {/* Month Pills */}
