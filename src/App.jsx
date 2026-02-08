@@ -944,14 +944,6 @@ export default function App() {
 
                         {/* Filter Bar */}
                         <div style={{ display: 'flex', gap: 8, marginBottom: 12, alignItems: 'center' }}>
-                            <button
-                                className="month-pill year-pill"
-                                style={{ background: 'var(--accent-primary)', color: '#000', fontWeight: 700, minWidth: 60, height: 42, padding: '0 12px' }}
-                                onClick={() => setData(p => ({ ...p, selectedYear: p.selectedYear === new Date().getFullYear() ? new Date().getFullYear() - 1 : new Date().getFullYear() }))}
-                            >
-                                {data.selectedYear || new Date().getFullYear()}
-                            </button>
-
                             {/* Account Filters - styled like tx-icon */}
                             <button
                                 onClick={() => setAccountFilters(f => ({ ...f, personalChk: !f.personalChk }))}
@@ -1019,18 +1011,11 @@ export default function App() {
                                     let filtered = transactions;
 
                                     // Month filter
-                                    // Year filter (Always respect selectedYear)
-                                    filtered = filtered.filter(tx => {
-                                        const txDate = new Date(tx.date);
-                                        return txDate.getFullYear() === data.selectedYear;
-                                    });
-
-                                    // Month filter
                                     if (monthFilter) {
                                         const monthNum = MONTHS.indexOf(data.selectedMonth);
                                         filtered = filtered.filter(tx => {
                                             const txDate = new Date(tx.date);
-                                            return txDate.getMonth() === monthNum;
+                                            return txDate.getMonth() === monthNum && txDate.getFullYear() === data.selectedYear;
                                         });
                                     }
 
@@ -1057,18 +1042,12 @@ export default function App() {
                                     const anyAccountFilter = Object.values(accountFilters).some(v => v);
                                     let filtered = transactions;
 
-                                    // Year filter (Always respect selectedYear)
-                                    filtered = filtered.filter(tx => {
-                                        const txDate = new Date(tx.date);
-                                        return txDate.getFullYear() === data.selectedYear;
-                                    });
-
                                     // Month filter
                                     if (monthFilter) {
                                         const monthNum = MONTHS.indexOf(data.selectedMonth);
                                         filtered = filtered.filter(tx => {
                                             const txDate = new Date(tx.date);
-                                            return txDate.getMonth() === monthNum;
+                                            return txDate.getMonth() === monthNum && txDate.getFullYear() === data.selectedYear;
                                         });
                                     }
 
@@ -1120,18 +1099,12 @@ export default function App() {
                                     // Same filter logic for load more button
                                     const anyAccountFilter = Object.values(accountFilters).some(v => v);
                                     let filtered = transactions;
-                                    // Year filter (Always respect selectedYear)
-                                    filtered = filtered.filter(tx => {
-                                        const txDate = new Date(tx.date);
-                                        return txDate.getFullYear() === data.selectedYear;
-                                    });
-
                                     // Month filter
                                     if (monthFilter) {
                                         const monthNum = MONTHS.indexOf(data.selectedMonth);
                                         filtered = filtered.filter(tx => {
                                             const txDate = new Date(tx.date);
-                                            return txDate.getMonth() === monthNum;
+                                            return txDate.getMonth() === monthNum && txDate.getFullYear() === data.selectedYear;
                                         });
                                     }
                                     if (anyAccountFilter) {
