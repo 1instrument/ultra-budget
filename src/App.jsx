@@ -419,12 +419,16 @@ export default function App() {
                 }));
                 setTransactions(mapped);
 
-                // Calculate business revenue/expenses from Business Checking transactions
-                const bizTransactions = txJson.transactions.filter(t => t.account_name === 'Business Checking');
-                const bizRevenue = bizTransactions
+                // Calculate business revenue (Checking only to avoid CC payments counting as income)
+                const bizChecking = txJson.transactions.filter(t => t.account_name === 'Business Checking');
+                const bizRevenue = bizChecking
                     .filter(t => Number(t.amount) > 0)
                     .reduce((sum, t) => sum + Number(t.amount), 0);
-                const bizExpenses = bizTransactions
+
+                // Calculate business expenses (Checking + Credit Card)
+                const expenseAccounts = ['Business Checking', 'Business CC'];
+                const expenseTransactions = txJson.transactions.filter(t => expenseAccounts.includes(t.account_name));
+                const bizExpenses = expenseTransactions
                     .filter(t => Number(t.amount) < 0)
                     .reduce((sum, t) => sum + Math.abs(Number(t.amount)), 0);
 
