@@ -244,9 +244,9 @@ export default function App() {
     const [filterCategory, setFilterCategory] = useState('all'); // 'all' or specific category name
     const [isSyncing, setIsSyncing] = useState(false);
     const [transactions, setTransactions] = useState(PLACEHOLDER_TXS);
-    const [transactions, setTransactions] = useState(PLACEHOLDER_TXS);
     const [txLimit, setTxLimit] = useState(50);
-    const [showFilters, setShowFilters] = useState(false);
+
+    // const [showFilters, setShowFilters] = useState(false); // Removed
     const [filterDateStart, setFilterDateStart] = useState('');
     const [filterDateEnd, setFilterDateEnd] = useState('');
 
@@ -475,6 +475,9 @@ export default function App() {
                     });
                 });
 
+                // Sort by date descending
+                mapped.sort((a, b) => new Date(b.date) - new Date(a.date));
+
                 setTransactions(mapped);
 
                 // Calculate business revenue (Checking only to avoid CC payments counting as income)
@@ -643,7 +646,7 @@ export default function App() {
 
                         {/* Month Pills */}
                         <div className="month-pills">
-                            <button className="month-pill year-pill" style={{ background: 'var(--accent)', color: '#000', fontWeight: 700 }} onClick={() => setData(p => ({ ...p, selectedYear: p.selectedYear === new Date().getFullYear() ? new Date().getFullYear() - 1 : new Date().getFullYear() }))}>{data.selectedYear || new Date().getFullYear()}</button>
+                            <button className="month-pill year-pill" style={{ background: 'var(--accent-primary)', color: '#000', fontWeight: 700, minWidth: 50 }} onClick={() => setData(p => ({ ...p, selectedYear: p.selectedYear === new Date().getFullYear() ? new Date().getFullYear() - 1 : new Date().getFullYear() }))}>{data.selectedYear || new Date().getFullYear()}</button>
                             {MONTHS.map(m => <button key={m} className={`month-pill ${data.selectedMonth === m ? 'active' : ''}`} onClick={() => selectMonth(m)}>{m}</button>)}
                         </div>
 
@@ -984,80 +987,51 @@ export default function App() {
                         {/* Header & Filter Toggle */}
                         <div className="flex items-center justify-between mb-3">
                             <h1 style={{ fontSize: 18, fontWeight: 700 }}>Transactions</h1>
-                            <div className="flex gap-2">
-                                <button className={`btn-icon ${showFilters ? 'active' : ''}`} style={{ background: showFilters ? 'var(--accent)' : 'var(--bg-card)', color: showFilters ? '#000' : 'var(--text-primary)' }} onClick={() => setShowFilters(!showFilters)}>
-                                    <Filter size={16} />
-                                </button>
-                                <button className={`sync-btn ${isSyncing ? 'syncing' : ''}`} onClick={syncLunchMoneyData} disabled={isSyncing}>
-                                    <Clock size={12} className={isSyncing ? 'spin' : ''} />
-                                    {isSyncing ? 'Syncing...' : 'Sync'}
-                                </button>
-                            </div>
+                            <button className={`sync-btn ${isSyncing ? 'syncing' : ''}`} onClick={syncLunchMoneyData} disabled={isSyncing}>
+                                <Clock size={12} className={isSyncing ? 'spin' : ''} />
+                                {isSyncing ? 'Syncing...' : 'Sync'}
+                            </button>
                         </div>
 
-                        {/* Filter Panel */}
-                        {showFilters && (
-                            <div className="filter-panel card mb-3">
-                                <div className="grid grid-cols-2 gap-3 mb-3">
-                                    <div>
-                                        <label className="text-secondary" style={{ fontSize: 10, textTransform: 'uppercase' }}>Budget Month</label>
-                                        <div className="flex gap-2 mt-1">
-                                            <select
-                                                className="input-inline w-full"
-                                                value={data.selectedMonth}
-                                                onChange={(e) => setData(prev => ({ ...prev, selectedMonth: e.target.value }))}
-                                            >
-                                                {MONTHS.map(m => <option key={m} value={m}>{m}</option>)}
-                                            </select>
-                                            <select
-                                                className="input-inline" style={{ width: 70 }}
-                                                value={data.selectedYear || new Date().getFullYear()}
-                                                onChange={(e) => setData(prev => ({ ...prev, selectedYear: Number(e.target.value) }))}
-                                            >
-                                                {[new Date().getFullYear() - 1, new Date().getFullYear()].map(y => <option key={y} value={y}>{y}</option>)}
-                                            </select>
-                                        </div>
-                                    </div>
-                                    <div>
-                                        <label className="text-secondary" style={{ fontSize: 10, textTransform: 'uppercase' }}>Category</label>
-                                        <select
-                                            className="input-inline w-full mt-1"
-                                            value={filterCategory}
-                                            onChange={(e) => setFilterCategory(e.target.value)}
-                                        >
-                                            <option value="all">All Categories</option>
-                                            {uniqueCategories.map(c => <option key={c} value={c}>{c}</option>)}
-                                        </select>
-                                    </div>
+                        {/* Filter Panel (Permanent) */}
+                        <div className="filter-panel card mb-3">
+                            <div className="grid grid-cols-2 gap-3 mb-3">
+                                <div>
+                                    <label className="text-secondary" style={{ fontSize: 10, textTransform: 'uppercase' }}>Start Date</label>
+                                    <input type="date" className="input-inline w-full mt-1" value={filterDateStart} onChange={(e) => setFilterDateStart(e.target.value)} />
                                 </div>
-                                <div className="grid grid-cols-2 gap-3 mb-3">
-                                    <div>
-                                        <label className="text-secondary" style={{ fontSize: 10, textTransform: 'uppercase' }}>Start Date</label>
-                                        <input type="date" className="input-inline w-full mt-1" value={filterDateStart} onChange={(e) => setFilterDateStart(e.target.value)} />
-                                    </div>
-                                    <div>
-                                        <label className="text-secondary" style={{ fontSize: 10, textTransform: 'uppercase' }}>End Date</label>
-                                        <input type="date" className="input-inline w-full mt-1" value={filterDateEnd} onChange={(e) => setFilterDateEnd(e.target.value)} />
-                                    </div>
-                                </div>
-                                <div className="filter-pills flex gap-2">
-                                    <button className={`filter-pill ${filterType === 'all' ? 'active' : ''}`} onClick={() => setFilterType('all')}>All</button>
-                                    <button className={`filter-pill ${filterType === 'income' ? 'active' : ''}`} onClick={() => setFilterType('income')}>Income</button>
-                                    <button className={`filter-pill ${filterType === 'expenses' ? 'active' : ''}`} onClick={() => setFilterType('expenses')}>Expenses</button>
-                                    <button className="filter-pill" style={{ marginLeft: 'auto', background: 'transparent', border: '1px solid var(--border)' }} onClick={() => { setFilterDateStart(''); setFilterDateEnd(''); setFilterCategory('all'); setFilterType('all'); }}>Reset</button>
+                                <div>
+                                    <label className="text-secondary" style={{ fontSize: 10, textTransform: 'uppercase' }}>End Date</label>
+                                    <input type="date" className="input-inline w-full mt-1" value={filterDateEnd} onChange={(e) => setFilterDateEnd(e.target.value)} />
                                 </div>
                             </div>
-                        )}
-
-                        {!showFilters && (
-                            <div className="mb-3">
-                                <div className="filter-pills" style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-                                    <button className={`filter-pill ${filterType === 'all' ? 'active' : ''}`} onClick={() => setFilterType('all')}>All</button>
-                                    <button className={`filter-pill ${filterType === 'income' ? 'active' : ''}`} onClick={() => setFilterType('income')}>Income</button>
-                                    <button className={`filter-pill ${filterType === 'expenses' ? 'active' : ''}`} onClick={() => setFilterType('expenses')}>Expenses</button>
+                            <div className="grid grid-cols-2 gap-3 mb-3">
+                                <div>
+                                    <label className="text-secondary" style={{ fontSize: 10, textTransform: 'uppercase' }}>Type</label>
+                                    <select
+                                        className="input-inline w-full mt-1"
+                                        value={filterType}
+                                        onChange={(e) => setFilterType(e.target.value)}
+                                    >
+                                        <option value="all">All Types</option>
+                                        <option value="income">Income</option>
+                                        <option value="expenses">Expenses</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label className="text-secondary" style={{ fontSize: 10, textTransform: 'uppercase' }}>Category</label>
+                                    <select
+                                        className="input-inline w-full mt-1"
+                                        value={filterCategory}
+                                        onChange={(e) => setFilterCategory(e.target.value)}
+                                    >
+                                        <option value="all">All Categories</option>
+                                        {uniqueCategories.map(c => <option key={c} value={c}>{c}</option>)}
+                                    </select>
                                 </div>
                             </div>
-                        )}
+                            <button className="filter-pill" style={{ width: '100%', justifyContent: 'center', background: 'transparent', border: '1px solid var(--border)' }} onClick={() => { setFilterDateStart(''); setFilterDateEnd(''); setFilterCategory('all'); setFilterType('all'); }}>Reset Filters</button>
+                        </div>
 
                         <div className="card">
                             <div className="card-header">
@@ -1196,10 +1170,9 @@ export default function App() {
                         </div>
                     </>
                 )}
-            </div >
-
+            </div>
             {/* Bottom Nav */}
-            < nav className="bottom-nav" >
+            <nav className="bottom-nav">
                 <button className={`nav-item ${page === 'dashboard' ? 'active' : ''}`} onClick={() => setPage('dashboard')}>
                     <LayoutDashboard size={16} />
                     <span>Dashboard</span>
@@ -1216,7 +1189,7 @@ export default function App() {
                     <Target size={16} />
                     <span>Strategy</span>
                 </button>
-            </nav >
+            </nav>
         </>
     );
 }
