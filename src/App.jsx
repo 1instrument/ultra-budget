@@ -741,7 +741,7 @@ export default function App() {
                                     opacity: isSyncing ? 0.5 : 1
                                 }}
                             >
-                                {isSyncing ? '⏳ Syncing...' : '🔄 Sync Categories'}
+                                {isSyncing ? 'Syncing...' : 'Sync Categories'}
                             </button>
                         </div>
 
