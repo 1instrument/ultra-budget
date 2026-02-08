@@ -241,6 +241,7 @@ export default function App() {
     const [page, setPage] = useState('dashboard');
     // chartMode removed
     const [isSyncing, setIsSyncing] = useState(false);
+    const [debugMode, setDebugMode] = useState(false);
     const [transactions, setTransactions] = useState(PLACEHOLDER_TXS);
     const [txLimit, setTxLimit] = useState(50);
 
@@ -844,10 +845,27 @@ export default function App() {
                         {/* Header */}
                         <div className="flex items-center justify-between mb-3">
                             <h1 style={{ fontSize: 18, fontWeight: 700 }}>Transactions</h1>
-                            <button className={`sync-btn ${isSyncing ? 'syncing' : ''}`} onClick={syncLunchMoneyData} disabled={isSyncing}>
-                                <Clock size={12} className={isSyncing ? 'spin' : ''} />
-                                {isSyncing ? 'Syncing...' : 'Sync'}
-                            </button>
+                            <div style={{ display: 'flex', gap: 8 }}>
+                                <button
+                                    onClick={() => setDebugMode(d => !d)}
+                                    style={{
+                                        padding: '6px 10px',
+                                        fontSize: 11,
+                                        fontWeight: 600,
+                                        background: debugMode ? 'var(--accent-amber)' : 'var(--bg-input)',
+                                        color: debugMode ? '#000' : 'var(--text-secondary)',
+                                        border: 'none',
+                                        borderRadius: 8,
+                                        cursor: 'pointer'
+                                    }}
+                                >
+                                    {debugMode ? 'Debug ON' : 'Debug'}
+                                </button>
+                                <button className={`sync-btn ${isSyncing ? 'syncing' : ''}`} onClick={syncLunchMoneyData} disabled={isSyncing}>
+                                    <Clock size={12} className={isSyncing ? 'spin' : ''} />
+                                    {isSyncing ? 'Syncing...' : 'Sync'}
+                                </button>
+                            </div>
                         </div>
 
                         <div className="card">
@@ -877,9 +895,11 @@ export default function App() {
                                             </div>
                                         </div>
                                         {/* Debug Output */}
-                                        <div className="tx-debug">
-                                            [DEBUG] account: "{tx.account_name}" | raw_amount: {tx.raw_amount}
-                                        </div>
+                                        {debugMode && (
+                                            <div className="tx-debug">
+                                                [DEBUG] account: "{tx.account_name}" | raw_amount: {tx.raw_amount}
+                                            </div>
+                                        )}
                                     </div>
                                 ))}
                                 {transactions.length > txLimit && (
