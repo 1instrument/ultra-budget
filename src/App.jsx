@@ -355,7 +355,7 @@ export default function App() {
 
     const updateField = (f, v) => setData(p => ({ ...p, [f]: Number(v) || 0 }));
     const selectMonth = (m) => setData(p => ({ ...p, selectedMonth: m }));
-    const updateBizField = (f, v) => setData(p => ({ ...p, monthlyBiz: { ...p.monthlyBiz, [p.selectedMonth]: { ...p.monthlyBiz[p.selectedMonth], [f]: Number(v) || 0 } } }));
+
     const toggleGroup = (id) => setData(p => ({ ...p, groups: p.groups.map(g => g.id === id ? { ...g, collapsed: !g.collapsed } : g) }));
     const addItem = (gid) => setData(p => ({ ...p, groups: p.groups.map(g => g.id === gid ? { ...g, items: [...g.items, { id: Date.now().toString(), name: 'New Item', amount: 0 }] } : g) }));
 
@@ -414,9 +414,31 @@ export default function App() {
                     category: t.category_name || 'Uncategorized',
                     amount: Number(t.amount),
                     date: t.date,
+                    account_name: t.account_name || 'Unknown',
                     icon: t.amount > 0 ? CreditCard : Receipt
                 }));
                 setTransactions(mapped);
+
+                // Calculate business revenue/expenses from Business Checking transactions
+                const bizTransactions = txJson.transactions.filter(t => t.account_name === 'Business Checking');
+                const bizRevenue = bizTransactions
+                    .filter(t => Number(t.amount) > 0)
+                    .reduce((sum, t) => sum + Number(t.amount), 0);
+                const bizExpenses = bizTransactions
+                    .filter(t => Number(t.amount) < 0)
+                    .reduce((sum, t) => sum + Math.abs(Number(t.amount)), 0);
+
+                // Update monthly business data
+                setData(prev => ({
+                    ...prev,
+                    monthlyBiz: {
+                        ...prev.monthlyBiz,
+                        [prev.selectedMonth]: {
+                            revenue: bizRevenue,
+                            expenses: bizExpenses
+                        }
+                    }
+                }));
             }
 
             // Update account balances
@@ -530,11 +552,11 @@ export default function App() {
                             <div className="account-grid">
                                 <div className="account-card">
                                     <div className="account-label"><Wallet size={10} className="text-blue" /> Personal</div>
-                                    <input type="number" className="input-inline account-value" value={data.personalBalance} onChange={(e) => updateField('personalBalance', e.target.value)} />
+                                    <div className="input-inline account-value" style={{ border: 'none', background: 'transparent', padding: 0 }}>{fmt(data.personalBalance)}</div>
                                 </div>
                                 <div className="account-card">
                                     <div className="account-label"><Building2 size={10} className="text-green" /> Business</div>
-                                    <input type="number" className="input-inline account-value text-green" value={data.bizBalance} onChange={(e) => updateField('bizBalance', e.target.value)} />
+                                    <div className="input-inline account-value text-green" style={{ border: 'none', background: 'transparent', padding: 0 }}>{fmt(data.bizBalance)}</div>
                                 </div>
                             </div>
                         </div>
@@ -762,11 +784,15 @@ export default function App() {
                             <div className="bento-grid">
                                 <div>
                                     <label className="text-secondary" style={{ fontSize: 9, textTransform: 'uppercase' }}>Revenue</label>
-                                    <input type="number" className="input-field mt-2" value={currentBiz.revenue} onChange={(e) => updateBizField('revenue', e.target.value)} />
+                                    <div className="input-field mt-2" style={{ display: 'flex', alignItems: 'center', height: 34, background: 'var(--card-bg)', border: '1px solid var(--border)', color: 'var(--text-primary)' }}>
+                                        {fmt(currentBiz.revenue)}
+                                    </div>
                                 </div>
                                 <div>
                                     <label className="text-secondary" style={{ fontSize: 9, textTransform: 'uppercase' }}>Expenses</label>
-                                    <input type="number" className="input-field mt-2" value={currentBiz.expenses} onChange={(e) => updateBizField('expenses', e.target.value)} />
+                                    <div className="input-field mt-2" style={{ display: 'flex', alignItems: 'center', height: 34, background: 'var(--card-bg)', border: '1px solid var(--border)', color: 'var(--text-primary)' }}>
+                                        {fmt(currentBiz.expenses)}
+                                    </div>
                                 </div>
                             </div>
                         </div>
