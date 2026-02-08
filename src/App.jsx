@@ -244,6 +244,7 @@ export default function App() {
     const [filterCategory, setFilterCategory] = useState('all'); // 'all' or specific category name
     const [isSyncing, setIsSyncing] = useState(false);
     const [transactions, setTransactions] = useState(PLACEHOLDER_TXS);
+    const [txLimit, setTxLimit] = useState(50);
 
     // Lock Screen State
     const [needsSetup, setNeedsSetup] = useState(() => !localStorage.getItem('ultra_pin_hash'));
@@ -346,6 +347,11 @@ export default function App() {
         if (filterCategory !== 'all') txs = txs.filter(tx => tx.category === filterCategory);
         return txs;
     }, [transactions, filterType, filterCategory]);
+
+    // Reset pagination when filters change
+    useEffect(() => {
+        setTxLimit(50);
+    }, [filterType, filterCategory]);
 
     // Gate the app behind PIN - AFTER all hooks are defined
     if (needsSetup) {
@@ -983,7 +989,7 @@ export default function App() {
                                 <span className="text-dim" style={{ fontSize: 10 }}>({filteredTxs.length})</span>
                             </div>
                             <div className="tx-list">
-                                {filteredTxs.map(tx => (
+                                {filteredTxs.slice(0, txLimit).map(tx => (
                                     <div key={tx.id} className="tx-item">
                                         <div className="tx-icon"><tx.icon size={16} className={tx.amount > 0 ? 'text-green' : 'text-secondary'} /></div>
                                         <div className="tx-details">
@@ -995,6 +1001,11 @@ export default function App() {
                                         </div>
                                     </div>
                                 ))}
+                                {filteredTxs.length > txLimit && (
+                                    <button className="load-more-btn" style={{ width: '100%', padding: '12px', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 12, marginTop: 8, fontSize: 13, fontWeight: 600, color: 'var(--text-secondary)' }} onClick={() => setTxLimit(l => l + 50)}>
+                                        Load More ({filteredTxs.length - txLimit} remaining)
+                                    </button>
+                                )}
                             </div>
                         </div>
                     </>
