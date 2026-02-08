@@ -430,10 +430,8 @@ export default function App() {
                 txJson.transactions.forEach(t => {
                     let amount = Number(t.amount);
 
-                    // Fix: Business Checking data is inverted from API (Expenses +, Income -)
-                    if (t.account_name === 'Business Checking') {
-                        amount = -amount;
-                    }
+                    // Flip sign: Lunch Money API returns expenses as positive, income as negative
+                    amount = -amount;
 
                     const { icon, isCC, colorClass } = getIconAndColor(t.account_name);
 
