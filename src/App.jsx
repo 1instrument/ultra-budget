@@ -393,22 +393,42 @@ export default function App() {
             const start = new Date(new Date().getFullYear(), MONTHS.indexOf(data.selectedMonth), 1).toISOString().split('T')[0];
             const end = new Date(new Date().getFullYear(), MONTHS.indexOf(data.selectedMonth) + 1, 0).toISOString().split('T')[0];
 
-            // Call our own Vercel API route with secret header
-            const response = await fetch(`/api/lunch-money?start_date=${start}&end_date=${end}`, {
-                headers: { 'x-ultra-secret': 'ultra-budget-2024-secure' }
-            });
-            const json = await response.json();
+            // Fetch both transactions and account balances
+            const [txResponse, balanceResponse] = await Promise.all([
+                fetch(`/api/lunch-money?start_date=${start}&end_date=${end}`, {
+                    headers: { 'x-ultra-secret': 'ultra-budget-2024-secure' }
+                }),
+                fetch('/api/lunch-money-balances', {
+                    headers: { 'x-ultra-secret': 'ultra-budget-2024-secure' }
+                })
+            ]);
 
-            if (json.transactions) {
-                const mapped = json.transactions.map(t => ({
+            const txJson = await txResponse.json();
+            const balanceJson = await balanceResponse.json();
+
+            // Update transactions
+            if (txJson.transactions) {
+                const mapped = txJson.transactions.map(t => ({
                     id: t.id,
                     name: t.payee,
                     category: t.category_name || 'Uncategorized',
                     amount: Number(t.amount),
                     date: t.date,
-                    icon: t.amount > 0 ? CreditCard : Receipt // Default icons for Lunch Money sync
+                    icon: t.amount > 0 ? CreditCard : Receipt
                 }));
                 setTransactions(mapped);
+            }
+
+            // Update account balances
+            if (balanceJson.accounts) {
+                const businessAccount = balanceJson.accounts.find(acc => acc.name === 'Business Checking');
+                const personalAccount = balanceJson.accounts.find(acc => acc.name === 'Personal Checking');
+
+                setData(prev => ({
+                    ...prev,
+                    bizBalance: businessAccount ? businessAccount.balance : prev.bizBalance,
+                    personalBalance: personalAccount ? personalAccount.balance : prev.personalBalance
+                }));
             }
         } catch (e) {
             console.error('Sync failed', e);
