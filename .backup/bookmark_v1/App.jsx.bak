@@ -1,0 +1,629 @@
+import React, { useState, useEffect, useMemo } from 'react';
+import {
+    Plus, Trash2, ChevronDown, ChevronRight, TrendingUp, TrendingDown,
+    Lightbulb, Wallet, Building2, Sparkles, LayoutDashboard, Receipt,
+    Coffee, ShoppingBag, Zap, Car, Home, CreditCard, Target, CalendarCheck,
+    Users, Clock, CheckCircle2, DollarSign, Filter, ShieldCheck, Moon
+} from 'lucide-react';
+
+
+
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const CURRENT_MONTH_INDEX = new Date().getMonth();
+const CURRENT_DAY = new Date().getDate();
+const BIZ_SAFETY_BASELINE = 25000;
+
+// Quartile: Q1 = days 1-7, Q2 = 8-15, Q3 = 16-22, Q4 = 23-31
+const getQuartile = (day) => {
+    if (day <= 7) return 1;
+    if (day <= 15) return 2;
+    if (day <= 22) return 3;
+    return 4;
+};
+
+const QUARTILE = getQuartile(CURRENT_DAY);
+
+const createInitialMonthlyData = () => {
+    const data = {};
+    MONTHS.forEach((month, i) => {
+        data[month] = { revenue: i === 1 ? 10000 : 0, expenses: i === 1 ? 2498 : 0 };
+    });
+    return data;
+};
+
+const INITIAL_STATE = {
+    salary: 4000,
+    personalBalance: 5200,
+    bizBalance: 28500,
+    selectedMonth: MONTHS[CURRENT_MONTH_INDEX],
+    streak: 1,
+    lastCheckIn: new Date().toISOString().split('T')[0],
+    groups: [
+        {
+            id: 'wealth', name: 'Wealth Building', color: '#C8FF00', collapsed: false, items: [
+                { id: '1', name: 'Travel Savings', amount: 500 },
+                { id: '2', name: 'Vanguard ETF', amount: 400 },
+                { id: '3', name: 'Philanthropy', amount: 100 },
+            ]
+        },
+        {
+            id: 'fixed', name: 'Fixed Expenses', color: '#5B7FFF', collapsed: true, items: [
+                { id: '4', name: 'Mortgage', amount: 960 },
+                { id: '5', name: 'Utilities', amount: 280 },
+                { id: '6', name: 'Insurance', amount: 275 },
+            ]
+        },
+        {
+            id: 'variable', name: 'Variable Spending', color: '#2DD4BF', collapsed: true, items: [
+                { id: '7', name: 'Groceries', amount: 500 },
+                { id: '8', name: 'Dining Out', amount: 250 },
+                { id: '9', name: 'Shopping', amount: 200 },
+            ]
+        }
+    ],
+    monthlyBiz: createInitialMonthlyData()
+};
+
+const PLACEHOLDER_TXS = [
+    { id: 1, name: 'Starbucks', category: 'Dining', amount: -6.45, date: 'Feb 6', icon: Coffee },
+    { id: 2, name: 'Amazon', category: 'Shopping', amount: -89.99, date: 'Feb 5', icon: ShoppingBag },
+    { id: 3, name: 'Electric Bill', category: 'Utilities', amount: -142.30, date: 'Feb 4', icon: Zap },
+    { id: 4, name: 'Gas Station', category: 'Auto', amount: -52.00, date: 'Feb 3', icon: Car },
+    { id: 5, name: 'Client Payment', category: 'Income', amount: 2500.00, date: 'Feb 2', icon: CreditCard },
+    { id: 6, name: 'Mortgage', category: 'Home', amount: -960.00, date: 'Feb 1', icon: Home },
+    { id: 7, name: 'Grocery Store', category: 'Groceries', amount: -127.84, date: 'Jan 31', icon: ShoppingBag },
+    { id: 8, name: 'Freelance Project', category: 'Income', amount: 1800.00, date: 'Jan 30', icon: CreditCard },
+];
+
+function getInsight(profit, sustainability, quartile, salary) {
+    if (quartile === 1) {
+        if (profit < 500) return { emoji: '📊', text: 'Early month. Data is just starting to come in.' };
+        return { emoji: '🚀', text: 'Strong start! Keep this momentum going.' };
+    }
+    if (quartile === 2) {
+        if (sustainability > 100) return { emoji: '💪', text: 'Behind pace, but plenty of time. Focus on closing deals.' };
+        return { emoji: '✨', text: 'On track! Pacing well for a solid month.' };
+    }
+    if (quartile === 3) {
+        if (sustainability > 120) return { emoji: '🔥', text: 'Time to hustle! Push for those last invoices.' };
+        if (sustainability > 100) return { emoji: '⚡', text: 'Almost there. One good day can flip this.' };
+        return { emoji: '🎯', text: 'Great pace. Stay consistent through the home stretch.' };
+    }
+    if (sustainability > 100) return { emoji: '💥', text: 'Final push! Every dollar counts.' };
+    if (profit > salary * 1.5) return { emoji: '🏆', text: 'Crushing it! Surplus ready for wealth distribution.' };
+    return { emoji: '✓', text: 'Healthy close. Salary is covered by profit.' };
+}
+
+function getDailyPrompt() {
+    const now = new Date();
+    const day = now.getDay(); // 0 = Sun, 5 = Fri, 6 = Sat
+    const hour = now.getHours();
+
+    if (day === 5 && hour >= 16) return { icon: Users, text: "Weekly Sync: Time for a partner review?" };
+    if (day === 0) return { icon: Target, text: "Sunday Strategy: Review your goals for the week." };
+    if (hour < 10) return { icon: Zap, text: "Morning Check: Review yesterday's transactions." };
+    if (hour > 20) return { icon: Moon, text: "Nightly Reflection: How balanced was today's spending?" };
+    return { icon: ShieldCheck, text: "System Check: Sustainability looks healthy today." };
+}
+
+export default function App() {
+
+    const [page, setPage] = useState('dashboard');
+    const [chartMode, setChartMode] = useState('allocation'); // 'allocation', 'actual'
+    const [filterType, setFilterType] = useState('all'); // 'all', 'income', 'expenses'
+    const [filterCategory, setFilterCategory] = useState('all'); // 'all' or specific category name
+    const [data, setData] = useState(() => {
+        const saved = localStorage.getItem('ultra_budget_v4');
+        if (saved) {
+            const parsed = JSON.parse(saved);
+            if (!parsed.selectedMonth) parsed.selectedMonth = MONTHS[CURRENT_MONTH_INDEX];
+            if (!parsed.personalBalance) parsed.personalBalance = 5200;
+            if (!parsed.bizBalance) parsed.bizBalance = 28500;
+            return parsed;
+        }
+        return INITIAL_STATE;
+    });
+
+    useEffect(() => {
+        localStorage.setItem('ultra_budget_v4', JSON.stringify(data));
+
+        // Streak logic
+        const today = new Date().toISOString().split('T')[0];
+        if (data.lastCheckIn !== today) {
+            const last = new Date(data.lastCheckIn);
+            const yesterday = new Date();
+            yesterday.setDate(yesterday.getDate() - 1);
+            const yesterdayStr = yesterday.toISOString().split('T')[0];
+
+            let newStreak = 1;
+            if (data.lastCheckIn === yesterdayStr) {
+                newStreak = (data.streak || 0) + 1;
+            }
+
+            setData(prev => ({
+                ...prev,
+                lastCheckIn: today,
+                streak: newStreak
+            }));
+        }
+    }, [data]);
+
+
+    const currentBiz = data.monthlyBiz[data.selectedMonth] || { revenue: 0, expenses: 0 };
+    const profit = currentBiz.revenue - currentBiz.expenses;
+    const sustainability = profit > 500 ? (data.salary / profit) * 100 : 0;
+    const isHealthy = profit > 500 && sustainability <= 100;
+    const isEarlyData = profit <= 500;
+
+    const insight = getInsight(profit, sustainability, QUARTILE, data.salary);
+
+    const totalPersonal = useMemo(() => data.groups.reduce((a, g) => a + g.items.reduce((s, i) => s + i.amount, 0), 0), [data.groups]);
+
+    const isBonusEligible = data.bizBalance >= BIZ_SAFETY_BASELINE && profit > data.salary * 1.5;
+    const potentialBonus = isBonusEligible ? Math.floor((profit - data.salary) * 0.5) : 0;
+
+    const dailyPrompt = getDailyPrompt();
+
+    // Actual spending breakdown by group
+    const actualBreakdown = useMemo(() => {
+        const groups = [0, 0, 0]; // wealth, fixed, variable
+        PLACEHOLDER_TXS.forEach(tx => {
+            if (tx.amount < 0) {
+                const abs = Math.abs(tx.amount);
+                if (tx.category === 'Dining' || tx.category === 'Shopping' || tx.category === 'Groceries') groups[2] += abs;
+                else if (tx.category === 'Home' || tx.category === 'Utilities' || tx.category === 'Auto') groups[1] += abs;
+                // Add wealth logic if there are positive txs that aren't revenue (savings transfers)
+            }
+        });
+        const total = groups.reduce((a, b) => a + b, 0);
+        return { groups, total };
+    }, []);
+
+    const updateField = (f, v) => setData(p => ({ ...p, [f]: Number(v) || 0 }));
+    const selectMonth = (m) => setData(p => ({ ...p, selectedMonth: m }));
+    const updateBizField = (f, v) => setData(p => ({ ...p, monthlyBiz: { ...p.monthlyBiz, [p.selectedMonth]: { ...p.monthlyBiz[p.selectedMonth], [f]: Number(v) || 0 } } }));
+    const toggleGroup = (id) => setData(p => ({ ...p, groups: p.groups.map(g => g.id === id ? { ...g, collapsed: !g.collapsed } : g) }));
+    const addItem = (gid) => setData(p => ({ ...p, groups: p.groups.map(g => g.id === gid ? { ...g, items: [...g.items, { id: Date.now().toString(), name: 'New Item', amount: 0 }] } : g) }));
+    const deleteItem = (gid, iid) => setData(p => ({ ...p, groups: p.groups.map(g => g.id === gid ? { ...g, items: g.items.filter(i => i.id !== iid) } : g) }));
+    const updateItem = (gid, iid, f, v) => setData(p => ({ ...p, groups: p.groups.map(g => g.id === gid ? { ...g, items: g.items.map(i => i.id === iid ? { ...i, [f]: f === 'amount' ? (Number(v) || 0) : v } : i) } : g) }));
+
+    const fmt = (n) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(n);
+    const pct = (a) => data.salary > 0 ? ((a / data.salary) * 100).toFixed(0) : 0;
+
+    // Transaction filtering
+    const uniqueCategories = useMemo(() => {
+        const cats = [...new Set(PLACEHOLDER_TXS.map(tx => tx.category))].filter(c => c !== 'Income');
+        return cats.sort();
+    }, []);
+
+    const filteredTxs = useMemo(() => {
+        let txs = PLACEHOLDER_TXS;
+        // Filter by type
+        if (filterType === 'income') txs = txs.filter(tx => tx.amount > 0);
+        else if (filterType === 'expenses') txs = txs.filter(tx => tx.amount < 0);
+        // Filter by category
+        if (filterCategory !== 'all') txs = txs.filter(tx => tx.category === filterCategory);
+        return txs;
+    }, [filterType, filterCategory]);
+
+
+    return (
+        <>
+            <div className="app-container">
+                {page === 'dashboard' ? (
+                    <>
+                        {/* Streak Tracker */}
+                        <div className="flex items-center justify-between mb-2" style={{ padding: '0 4px' }}>
+                            <div className="flex items-center gap-2">
+                                <CalendarCheck size={14} className="text-teal" />
+                                <span style={{ fontSize: 11, fontWeight: 600 }}>Daily Check-in</span>
+                            </div>
+                            <div className="streak-row">
+                                {[...Array(7)].map((_, i) => (
+                                    <div key={i} className={`streak-dot ${i < (data.streak % 8) ? 'active' : ''}`} />
+                                ))}
+                                <span style={{ fontSize: 10, fontWeight: 700, marginLeft: 4, color: 'var(--accent-teal)' }}>{data.streak} DAY STREAK</span>
+                            </div>
+                        </div>
+
+                        {/* Account Section */}
+                        <div className="account-section">
+                            <div className="account-section-title">Account Balances</div>
+                            <div className="account-grid">
+                                <div className="account-card">
+                                    <div className="account-label"><Wallet size={10} className="text-blue" /> Personal</div>
+                                    <input type="number" className="input-inline account-value" value={data.personalBalance} onChange={(e) => updateField('personalBalance', e.target.value)} />
+                                </div>
+                                <div className="account-card">
+                                    <div className="account-label"><Building2 size={10} className="text-green" /> Business</div>
+                                    <input type="number" className="input-inline account-value text-green" value={data.bizBalance} onChange={(e) => updateField('bizBalance', e.target.value)} />
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Month Pills */}
+                        <div className="month-pills">
+                            {MONTHS.map(m => <button key={m} className={`month-pill ${data.selectedMonth === m ? 'active' : ''}`} onClick={() => selectMonth(m)}>{m}</button>)}
+                        </div>
+
+                        {/* Sustainability + Insight */}
+                        <div className="bento-grid mb-3">
+                            <div className="card" style={{ marginBottom: 0 }}>
+                                <div className="card-header">
+                                    <span className="card-title">Sustainability</span>
+                                    {!isEarlyData && <div className="btn-icon" style={{ width: 22, height: 22 }}>{isHealthy ? <TrendingUp size={12} className="text-green" /> : <TrendingDown size={12} className="text-amber" />}</div>}
+                                </div>
+                                <div className={`stat-hero ${isEarlyData ? 'text-secondary' : isHealthy ? 'text-green' : 'text-amber'}`}>
+                                    {isEarlyData ? '—' : `${Math.min(sustainability, 999).toFixed(0)}%`}
+                                </div>
+                                <div className="progress-container mt-2">
+                                    <div className={`progress-fill ${isHealthy ? 'bg-green' : 'bg-teal'}`} style={{ width: isEarlyData ? '0%' : `${Math.min(sustainability, 100)}%`, background: isHealthy ? 'var(--accent-green)' : 'var(--accent-amber)' }} />
+                                </div>
+                            </div>
+                            <div className="card insight-card" style={{ marginBottom: 0 }}>
+                                <div className="card-header">
+                                    <span className="card-title">Q{QUARTILE} Insight</span>
+                                    <Lightbulb size={12} className="text-purple" />
+                                </div>
+                                <p style={{ fontSize: 11, lineHeight: 1.5, color: 'var(--text-secondary)' }}>{insight.emoji} {insight.text}</p>
+                            </div>
+                        </div>
+
+                        {/* Bonus Banner */}
+                        {isBonusEligible && (
+                            <div className="bonus-banner">
+                                <Sparkles size={16} className="text-accent" />
+                                <div>
+                                    <div style={{ fontSize: 11, fontWeight: 600 }}>Bonus Eligible</div>
+                                    <div style={{ fontSize: 10, color: 'var(--text-secondary)' }}>{fmt(potentialBonus)} for wealth distribution</div>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Salary + Profit */}
+                        <div className="bento-grid mb-1">
+                            <div className="card" style={{ marginBottom: 0 }}>
+                                <span className="card-title">Salary Draw</span>
+                                <input type="number" className="input-inline stat-medium mt-2" value={data.salary} onChange={(e) => updateField('salary', e.target.value)} />
+                            </div>
+                            <div className="card" style={{ marginBottom: 0 }}>
+                                <span className="card-title">Biz Profit • {data.selectedMonth}</span>
+                                <div className={`stat-medium mt-2 ${profit >= 0 ? 'text-green' : 'text-red'}`}>{fmt(profit)}</div>
+                            </div>
+                        </div>
+
+                        {/* Daily Task Prompt */}
+                        <div className="prompt-card mb-3">
+                            <dailyPrompt.icon size={14} className="text-teal" />
+                            <span style={{ fontSize: 11, fontWeight: 500 }}>{dailyPrompt.text}</span>
+                        </div>
+
+                        {/* Spending Pie Chart */}
+                        <div className="card mb-3">
+                            <div className="card-header">
+                                <span className="card-title">Spending Breakdown</span>
+                                <div className="toggle-group">
+                                    <button className={`toggle-btn ${chartMode === 'allocation' ? 'active' : ''}`} onClick={() => setChartMode('allocation')}>Alloc</button>
+                                    <button className={`toggle-btn ${chartMode === 'actual' ? 'active' : ''}`} onClick={() => setChartMode('actual')}>Actual</button>
+                                </div>
+                            </div>
+                            <div style={{ display: 'flex', gap: 16, alignItems: 'center' }}>
+                                <div className="pie-chart" style={{
+                                    background: chartMode === 'allocation' ? `conic-gradient(
+                                        ${data.groups[0]?.color || '#C8FF00'} 0% ${pct(data.groups[0]?.items.reduce((s, i) => s + i.amount, 0) || 0)}%,
+                                        ${data.groups[1]?.color || '#5B7FFF'} ${pct(data.groups[0]?.items.reduce((s, i) => s + i.amount, 0) || 0)}% ${pct((data.groups[0]?.items.reduce((s, i) => s + i.amount, 0) || 0) + (data.groups[1]?.items.reduce((s, i) => s + i.amount, 0) || 0))}%,
+                                        ${data.groups[2]?.color || '#2DD4BF'} ${pct((data.groups[0]?.items.reduce((s, i) => s + i.amount, 0) || 0) + (data.groups[1]?.items.reduce((s, i) => s + i.amount, 0) || 0))}% 100%
+                                    )` : `conic-gradient(
+                                        ${data.groups[0]?.color || '#C8FF00'} 0% 0%,
+                                        ${data.groups[1]?.color || '#5B7FFF'} 0% ${(actualBreakdown.groups[1] / actualBreakdown.total * 100).toFixed(0)}%,
+                                        ${data.groups[2]?.color || '#2DD4BF'} ${(actualBreakdown.groups[1] / actualBreakdown.total * 100).toFixed(0)}% 100%
+                                    )`
+                                }} />
+                                <div style={{ flex: 1 }}>
+                                    {data.groups.map((g, idx) => {
+                                        const gVal = chartMode === 'allocation'
+                                            ? g.items.reduce((s, i) => s + i.amount, 0)
+                                            : actualBreakdown.groups[idx];
+                                        const gPct = chartMode === 'allocation'
+                                            ? pct(gVal)
+                                            : actualBreakdown.total > 0 ? (gVal / actualBreakdown.total * 100).toFixed(0) : 0;
+
+                                        return (
+                                            <div key={g.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                                    <div style={{ width: 10, height: 10, borderRadius: 2, background: g.color }} />
+                                                    <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>{g.name}</span>
+                                                </div>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                                    <span style={{ fontSize: 10, color: 'var(--text-dim)' }}>{gPct}%</span>
+                                                    <span style={{ fontSize: 11, fontWeight: 600 }}>{fmt(gVal)}</span>
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Warnings/Tips Card */}
+                        {(() => {
+                            if (isEarlyData) return null;
+                            if (sustainability > 100) {
+                                return (
+                                    <div className="warning-card warning mb-3">
+                                        <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 4 }}>⚠️ Overspending</div>
+                                        <div style={{ fontSize: 11, lineHeight: 1.5, color: 'var(--text-secondary)' }}>
+                                            Your salary ({fmt(data.salary)}) exceeds profit ({fmt(profit)}). Consider reducing allocations or increasing revenue.
+                                        </div>
+                                    </div>
+                                );
+                            }
+                            if (totalPersonal > data.salary) {
+                                return (
+                                    <div className="warning-card warning mb-3">
+                                        <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 4 }}>⚠️ Over-Allocated</div>
+                                        <div style={{ fontSize: 11, lineHeight: 1.5, color: 'var(--text-secondary)' }}>
+                                            Allocations ({fmt(totalPersonal)}) exceed salary ({fmt(data.salary)}). Adjust on the Budget page.
+                                        </div>
+                                    </div>
+                                );
+                            }
+                            if (sustainability >= 80 && sustainability <= 100) {
+                                return (
+                                    <div className="warning-card caution mb-3">
+                                        <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 4 }}>⚡ Close to Limit</div>
+                                        <div style={{ fontSize: 11, lineHeight: 1.5, color: 'var(--text-secondary)' }}>
+                                            You're at {sustainability.toFixed(0)}% sustainability. Small increases in spending could push you over.
+                                        </div>
+                                    </div>
+                                );
+                            }
+                            return (
+                                <div className="warning-card tip mb-3">
+                                    <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 4 }}>💡 Healthy Position</div>
+                                    <div style={{ fontSize: 11, lineHeight: 1.5, color: 'var(--text-secondary)' }}>
+                                        Your spending is sustainable at {sustainability.toFixed(0)}%. {data.bizBalance >= BIZ_SAFETY_BASELINE && 'Business reserve is strong.'}
+                                    </div>
+                                </div>
+                            );
+                        })()}
+                    </>
+                ) : page === 'budget' ? (
+                    /* Budget Page */
+                    <>
+                        <div className="mb-3">
+                            <h1 style={{ fontSize: 18, fontWeight: 700, marginBottom: 4 }}>Budget & Allocations</h1>
+                            <p className="text-secondary" style={{ fontSize: 11 }}>Track business finances and salary allocations</p>
+                        </div>
+
+                        {/* Month Pills */}
+                        <div className="month-pills">
+                            {MONTHS.map(m => <button key={m} className={`month-pill ${data.selectedMonth === m ? 'active' : ''}`} onClick={() => selectMonth(m)}>{m}</button>)}
+                        </div>
+
+                        {/* Salary Input */}
+                        <div className="card mb-3">
+                            <span className="card-title">Salary Draw</span>
+                            <input type="number" className="input-inline stat-medium mt-2" value={data.salary} onChange={(e) => updateField('salary', e.target.value)} />
+                        </div>
+
+                        {/* Business */}
+                        <div className="card mb-3">
+                            <div className="card-header"><span className="card-title">Business • {data.selectedMonth}</span></div>
+                            <div className="bento-grid">
+                                <div>
+                                    <label className="text-secondary" style={{ fontSize: 9, textTransform: 'uppercase' }}>Revenue</label>
+                                    <input type="number" className="input-field mt-2" value={currentBiz.revenue} onChange={(e) => updateBizField('revenue', e.target.value)} />
+                                </div>
+                                <div>
+                                    <label className="text-secondary" style={{ fontSize: 9, textTransform: 'uppercase' }}>Expenses</label>
+                                    <input type="number" className="input-field mt-2" value={currentBiz.expenses} onChange={(e) => updateBizField('expenses', e.target.value)} />
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Allocations */}
+                        <div className="mb-3">
+                            <div className="flex items-center justify-between mb-2" style={{ padding: '0 4px' }}>
+                                <span className="card-title">Allocations</span>
+                                <div className="flex items-center gap-2">
+                                    <span className="group-percent">{pct(totalPersonal)}%</span>
+                                    <span className="text-secondary" style={{ fontSize: 11, fontWeight: 600 }}>{fmt(totalPersonal)}</span>
+                                </div>
+                            </div>
+                            {data.groups.map(g => {
+                                const gTotal = g.items.reduce((s, i) => s + i.amount, 0);
+                                return (
+                                    <div key={g.id} className="group-card">
+                                        <div className="group-header" onClick={() => toggleGroup(g.id)}>
+                                            <div className="group-title">
+                                                <div className="group-indicator" style={{ background: g.color }} />
+                                                <span className="group-name">{g.name}</span>
+                                            </div>
+                                            <div className="group-meta">
+                                                <span className="group-percent">{pct(gTotal)}%</span>
+                                                <span className="group-total">{fmt(gTotal)}</span>
+                                                {g.collapsed ? <ChevronRight size={14} className="text-dim" /> : <ChevronDown size={14} className="text-dim" />}
+                                            </div>
+                                        </div>
+                                        {!g.collapsed && (
+                                            <div className="group-content">
+                                                {g.items.map(i => (
+                                                    <div key={i.id} className="item-row">
+                                                        <input className="input-inline item-name" value={i.name} onChange={(e) => updateItem(g.id, i.id, 'name', e.target.value)} />
+                                                        <div className="item-meta">
+                                                            <span className="item-percent">{pct(i.amount)}%</span>
+                                                            <div className="flex items-center"><span className="text-dim" style={{ fontSize: 10, marginRight: 2 }}>$</span>
+                                                                <input type="number" className="input-inline item-amount" style={{ width: 55, textAlign: 'right' }} value={i.amount} onChange={(e) => updateItem(g.id, i.id, 'amount', e.target.value)} />
+                                                            </div>
+                                                        </div>
+                                                        <button className="btn-icon btn-delete" style={{ width: 24, height: 24 }} onClick={() => deleteItem(g.id, i.id)}><Trash2 size={11} /></button>
+                                                    </div>
+                                                ))}
+                                                <button className="add-item-btn" onClick={() => addItem(g.id)}><Plus size={11} /> Add</button>
+                                            </div>
+                                        )}
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </>
+                ) : page === 'transactions' ? (
+                    /* Transactions Page */
+                    <>
+                        <div className="flex items-center justify-between mb-3">
+                            <h1 style={{ fontSize: 18, fontWeight: 700 }}>Transactions</h1>
+                            <span className="text-secondary" style={{ fontSize: 11 }}>Synced from Lunch Money</span>
+                        </div>
+
+                        {/* Filters */}
+                        <div className="mb-3">
+                            <div className="filter-pills mb-2">
+                                <button className={`filter-pill ${filterType === 'all' ? 'active' : ''}`} onClick={() => { setFilterType('all'); setFilterCategory('all'); }}>All</button>
+                                <button className={`filter-pill ${filterType === 'income' ? 'active' : ''}`} onClick={() => { setFilterType('income'); setFilterCategory('all'); }}>Income</button>
+                                <button className={`filter-pill ${filterType === 'expenses' ? 'active' : ''}`} onClick={() => { setFilterType('expenses'); setFilterCategory('all'); }}>Expenses</button>
+                            </div>
+                            {filterType === 'expenses' && (
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                    <Filter size={14} className="text-teal" />
+                                    <select
+                                        className="input-field"
+                                        style={{ fontSize: 11, padding: '6px 8px', flex: 1 }}
+                                        value={filterCategory}
+                                        onChange={(e) => setFilterCategory(e.target.value)}
+                                    >
+                                        <option value="all">All Categories</option>
+                                        {uniqueCategories.map(cat => <option key={cat} value={cat}>{cat}</option>)}
+                                    </select>
+                                </div>
+                            )}
+                        </div>
+
+                        <div className="card">
+                            <div className="card-header">
+                                <span className="card-title">Recent Activity</span>
+                                <span className="text-dim" style={{ fontSize: 10 }}>({filteredTxs.length})</span>
+                            </div>
+                            <div className="tx-list">
+                                {filteredTxs.map(tx => (
+                                    <div key={tx.id} className="tx-item">
+                                        <div className="tx-icon"><tx.icon size={16} className={tx.amount > 0 ? 'text-green' : 'text-secondary'} /></div>
+                                        <div className="tx-details">
+                                            <div className="tx-name">{tx.name}</div>
+                                            <div className="tx-meta">{tx.category} • {tx.date}</div>
+                                        </div>
+                                        <div className={`tx-amount ${tx.amount > 0 ? 'income' : 'expense'}`}>
+                                            {tx.amount > 0 ? '+' : ''}{fmt(tx.amount)}
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    </>
+                ) : (
+                    /* Strategy Page */
+                    <>
+                        <div className="mb-3">
+                            <h1 style={{ fontSize: 18, fontWeight: 700, marginBottom: 4 }}>Execution Strategy</h1>
+                            <p className="text-secondary" style={{ fontSize: 11 }}>The system that makes the budget work</p>
+                        </div>
+
+                        {/* Daily Habit */}
+                        <div className="card mb-3" style={{ borderLeft: '3px solid var(--accent-teal)' }}>
+                            <div className="flex items-center gap-2 mb-2">
+                                <Clock size={14} className="text-teal" />
+                                <span style={{ fontSize: 13, fontWeight: 600 }}>Daily: 2-Minute Check-in</span>
+                            </div>
+                            <p className="text-secondary" style={{ fontSize: 11, lineHeight: 1.6, marginBottom: 12 }}>
+                                Every morning, open this app and glance at your sustainability %. No action required—just awareness. This single habit builds financial mindfulness.
+                            </p>
+                            <div style={{ background: 'var(--bg-input)', borderRadius: 12, padding: 12 }}>
+                                <div style={{ fontSize: 10, fontWeight: 600, color: 'var(--text-dim)', marginBottom: 8 }}>ASK YOURSELF:</div>
+                                <div style={{ fontSize: 12, lineHeight: 1.7, color: 'var(--text-secondary)' }}>
+                                    ✓ Any new revenue to log?<br />
+                                    ✓ Any surprise expenses?<br />
+                                    ✓ Is today a spending day or earning day?
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Weekly Sync */}
+                        <div className="card mb-3" style={{ borderLeft: '3px solid var(--accent-blue)' }}>
+                            <div className="flex items-center gap-2 mb-2">
+                                <Users size={14} className="text-blue" />
+                                <span style={{ fontSize: 13, fontWeight: 600 }}>Weekly: Partner Sync</span>
+                            </div>
+                            <p className="text-secondary" style={{ fontSize: 11, lineHeight: 1.6, marginBottom: 12 }}>
+                                Every Sunday, 15 minutes with your wife. Share your screen. No blame—just facts and adjustments.
+                            </p>
+                            <div style={{ background: 'var(--bg-input)', borderRadius: 12, padding: 12 }}>
+                                <div style={{ fontSize: 10, fontWeight: 600, color: 'var(--text-dim)', marginBottom: 8 }}>AGENDA:</div>
+                                <div style={{ fontSize: 12, lineHeight: 1.8, color: 'var(--text-secondary)' }}>
+                                    1. Show sustainability % and profit<br />
+                                    2. Review variable spending together<br />
+                                    3. Flag any big expenses coming up<br />
+                                    4. Celebrate wins (even small ones)
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Monthly Goal */}
+                        <div className="card mb-3" style={{ borderLeft: '3px solid var(--accent-primary)' }}>
+                            <div className="flex items-center gap-2 mb-2">
+                                <Target size={14} className="text-accent" />
+                                <span style={{ fontSize: 13, fontWeight: 600 }}>Monthly Goal</span>
+                            </div>
+                            <p className="text-secondary" style={{ fontSize: 11, lineHeight: 1.6, marginBottom: 12 }}>
+                                Keep sustainability under 100%. When you hit a surplus month, distribute bonus to wealth accounts proportionally.
+                            </p>
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                                <div style={{ background: 'var(--bg-input)', borderRadius: 10, padding: 10, textAlign: 'center' }}>
+                                    <div style={{ fontSize: 18, fontWeight: 700 }} className="text-green">≤100%</div>
+                                    <div style={{ fontSize: 9, color: 'var(--text-dim)', marginTop: 2 }}>SUSTAINABILITY</div>
+                                </div>
+                                <div style={{ background: 'var(--bg-input)', borderRadius: 10, padding: 10, textAlign: 'center' }}>
+                                    <div style={{ fontSize: 18, fontWeight: 700 }} className="text-accent">$25k+</div>
+                                    <div style={{ fontSize: 9, color: 'var(--text-dim)', marginTop: 2 }}>BIZ RESERVE</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Quick Rules */}
+                        <div className="card" style={{ background: 'linear-gradient(135deg, rgba(45, 212, 191, 0.08), rgba(91, 127, 255, 0.05))', border: '1px solid rgba(45, 212, 191, 0.15)' }}>
+                            <div className="flex items-center gap-2 mb-2">
+                                <CheckCircle2 size={14} className="text-teal" />
+                                <span style={{ fontSize: 13, fontWeight: 600 }}>The 3 Rules</span>
+                            </div>
+                            <div style={{ fontSize: 12, lineHeight: 1.9, color: 'var(--text-secondary)' }}>
+                                <strong>1. Profit First.</strong> Pay yourself only from actual profit, not revenue.<br />
+                                <strong>2. Buffer Before Bonus.</strong> Biz account stays above $25k before any extra distributions.<br />
+                                <strong>3. Communicate, Dont Control.</strong> Your wife is your partner. Share data, discuss together, decide together.
+                            </div>
+                        </div>
+                    </>
+                )}
+            </div>
+
+            {/* Bottom Nav */}
+            <nav className="bottom-nav">
+                <button className={`nav-item ${page === 'dashboard' ? 'active' : ''}`} onClick={() => setPage('dashboard')}>
+                    <LayoutDashboard size={16} />
+                    <span>Dashboard</span>
+                </button>
+                <button className={`nav-item ${page === 'budget' ? 'active' : ''}`} onClick={() => setPage('budget')}>
+                    <DollarSign size={16} />
+                    <span>Budget</span>
+                </button>
+                <button className={`nav-item ${page === 'transactions' ? 'active' : ''}`} onClick={() => setPage('transactions')}>
+                    <Receipt size={16} />
+                    <span>Transactions</span>
+                </button>
+                <button className={`nav-item ${page === 'strategy' ? 'active' : ''}`} onClick={() => setPage('strategy')}>
+                    <Target size={16} />
+                    <span>Strategy</span>
+                </button>
+            </nav>
+        </>
+    );
+}
+

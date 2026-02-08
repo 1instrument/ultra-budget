@@ -1,0 +1,21 @@
+{
+    "short_name": "Ultra Budget",
+    "name": "Ultra Budget Financial Tracker",
+    "icons": [
+        {
+            "src": "favicon.ico",
+            "sizes": "64x64 32x32 24x24 16x16",
+            "type": "image/x-icon"
+        },
+        {
+            "src": "ultra_budget_app_icon.png",
+            "type": "image/png",
+            "sizes": "512x512",
+            "purpose": "any maskable"
+        }
+    ],
+    "start_url": ".",
+    "display": "standalone",
+    "theme_color": "#0a191e",
+    "background_color": "#0a191e"
+}
