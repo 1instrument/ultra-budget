@@ -33,7 +33,7 @@ body {
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
   background: var(--bg-base);
   color: var(--text-primary);
-  font-size: 15px;
+  font-size: 18px;
   -webkit-font-smoothing: antialiased;
   min-height: 100vh;
 }

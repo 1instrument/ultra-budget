@@ -772,7 +772,7 @@ export default function App() {
                                                                 <input type="number" className="input-inline item-amount" style={{ width: 55, textAlign: 'right' }} value={i.amount} onChange={(e) => updateItem(g.id, i.id, 'amount', e.target.value)} />
                                                             </div>
                                                         </div>
-                                                        <button className="btn-icon btn-delete" style={{ width: 24, height: 24 }} onClick={() => deleteItem(g.id, i.id)}><Trash2 size={11} /></button>
+                                                        <button className="btn-icon btn-delete" style={{ width: 24, height: 24, marginLeft: 12 }} onClick={() => deleteItem(g.id, i.id)}><Trash2 size={11} /></button>
                                                     </div>
                                                 ))}
                                                 <button className="add-item-btn" onClick={() => addItem(g.id)}><Plus size={11} /> Add Item</button>
