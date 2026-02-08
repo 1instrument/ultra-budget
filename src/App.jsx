@@ -438,10 +438,6 @@ export default function App() {
                     seenIds.add(t.id);
 
                     let amount = Number(t.amount);
-                    // Fix: Force 'Deposit' to be positive (Income)
-                    if (t.payee && t.payee.toLowerCase().includes('deposit') && amount < 0) {
-                        amount = Math.abs(amount);
-                    }
 
                     mapped.push({
                         id: t.id,
@@ -450,7 +446,7 @@ export default function App() {
                         amount: amount,
                         date: t.date,
                         account_name: t.account_name || 'Unknown',
-                        icon: amount > 0 ? CreditCard : Receipt // Icon logic based on fixed amount
+                        icon: amount > 0 ? CreditCard : Receipt
                     });
                 });
 
