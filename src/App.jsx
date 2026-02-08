@@ -10,9 +10,7 @@ import {
 
 import { useSwipe } from './useSwipe';
 
-const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 const PAGE_ORDER = ['dashboard', 'budget', 'transactions', 'strategy'];
-const CURRENT_MONTH_INDEX = new Date().getMonth();
 const CURRENT_DAY = new Date().getDate();
 const BIZ_SAFETY_BASELINE = 25000;
 
@@ -26,20 +24,10 @@ const getQuartile = (day) => {
 
 const QUARTILE = getQuartile(CURRENT_DAY);
 
-const createInitialMonthlyData = () => {
-    const data = {};
-    MONTHS.forEach((month, i) => {
-        data[month] = { revenue: i === 1 ? 10000 : 0, expenses: i === 1 ? 2498 : 0 };
-    });
-    return data;
-};
-
 const INITIAL_STATE = {
-    selectedYear: new Date().getFullYear(),
     salary: 4000,
     personalBalance: 5200,
     bizBalance: 28500,
-    selectedMonth: MONTHS[CURRENT_MONTH_INDEX],
     streak: 1,
     lastCheckIn: new Date().toISOString().split('T')[0],
     groups: [
@@ -65,7 +53,6 @@ const INITIAL_STATE = {
             ]
         }
     ],
-    monthlyBiz: createInitialMonthlyData(),
     goals: [
         { id: '1', name: 'Emergency Fund', target: 10000, startingBalance: 2000, monthlyContributions: {} },
         { id: '2', name: 'New Car', target: 35000, startingBalance: 5000, monthlyContributions: {} }
@@ -253,7 +240,6 @@ export default function App() {
         bizChk: false,
         bizCC: false
     });
-    const [monthFilter, setMonthFilter] = useState(false);
     const [bizRollingPeriod, setBizRollingPeriod] = useState(30); // 30, 60, or 90 days
 
     // Lock Screen State
@@ -267,8 +253,6 @@ export default function App() {
         if (saved) {
             const parsed = JSON.parse(saved);
             // Migrations / Defaults for new features
-            if (!parsed.selectedMonth) parsed.selectedMonth = MONTHS[CURRENT_MONTH_INDEX];
-            if (!parsed.selectedYear) parsed.selectedYear = new Date().getFullYear();
             if (!parsed.personalBalance) parsed.personalBalance = 5200;
             if (!parsed.bizBalance) parsed.bizBalance = 28500;
             if (!parsed.goals) parsed.goals = INITIAL_STATE.goals;
@@ -303,18 +287,8 @@ export default function App() {
         }
     }, [data]);
 
-    // Ensure selectedYear is set (migration for existing users/HMR)
-    useEffect(() => {
-        if (!data.selectedYear) {
-            setData(prev => ({ ...prev, selectedYear: new Date().getFullYear() }));
-        }
-    }, [data.selectedYear]);
-
-
-
-    const currentBizKey = `${data.selectedYear}-${data.selectedMonth}`;
-    // Fallback for when no transactions are loaded yet
-    const currentBiz = data.monthlyBiz[currentBizKey] || { revenue: 0, expenses: 0 };
+    // profit, sustainability, isHealthy, isEarlyData are now defined after bizCalcs useMemo
+    const currentBiz = { revenue: 0, expenses: 0 };
     // profit, sustainability, isHealthy, isEarlyData are now defined after bizCalcs useMemo
 
     const totalPersonal = useMemo(() => data.groups.reduce((a, g) => a + g.items.reduce((s, i) => s + i.amount, 0), 0), [data.groups]);
@@ -336,35 +310,8 @@ export default function App() {
         return { groups, total };
     }, [transactions]);
 
-    // Business revenue/expense calculations filtered by selected month
-    // Business revenue/expense calculations filtered by selected month and year (for Budget/Transactions)
-    const monthBizCalcs = useMemo(() => {
-        const monthNum = MONTHS.indexOf(data.selectedMonth);
-        const year = data.selectedYear;
-
-        // Filter transactions to selected month and brand year
-        const monthTxs = transactions.filter(tx => {
-            const txDate = new Date(tx.date);
-            return txDate.getMonth() === monthNum && txDate.getFullYear() === year;
-        });
-
-        const bizAccounts = ['Business Checking', 'Business CC'];
-
-        // Revenue: positive amounts from business checking only (income)
-        const revenue = monthTxs
-            .filter(tx => tx.account_name === 'Business Checking' && tx.amount > 0)
-            .reduce((sum, tx) => sum + tx.amount, 0);
-
-        // Expenses: negative amounts from both business accounts
-        const expenses = monthTxs
-            .filter(tx => bizAccounts.includes(tx.account_name) && tx.amount < 0)
-            .reduce((sum, tx) => sum + Math.abs(tx.amount), 0);
-
-        return { revenue, expenses, profit: revenue - expenses };
-    }, [transactions, data.selectedMonth, data.selectedYear]);
-
-    // Rolling business metrics (for Dashboard)
-    const rollingBizCalcs = useMemo(() => {
+    // Rolling business metrics (Primary source of truth)
+    const bizCalcs = useMemo(() => {
         const now = new Date();
         const cutoff = new Date();
         cutoff.setDate(now.getDate() - bizRollingPeriod);
@@ -392,11 +339,11 @@ export default function App() {
         return { revenue, expenses, profit, sustainability, isHealthy, isEarlyData };
     }, [transactions, bizRollingPeriod, data.salary]);
 
-    // Use rolling values for Dashboard metrics
-    const profit = rollingBizCalcs.profit;
-    const sustainability = rollingBizCalcs.sustainability;
-    const isHealthy = rollingBizCalcs.isHealthy;
-    const isEarlyData = rollingBizCalcs.isEarlyData;
+    // Use rolling values for Dashboard and Budget metrics
+    const profit = bizCalcs.profit;
+    const sustainability = bizCalcs.sustainability;
+    const isHealthy = bizCalcs.isHealthy;
+    const isEarlyData = bizCalcs.isEarlyData;
 
     // Insight and bonus calculations (depend on profit)
     const insight = getInsight(profit, sustainability, QUARTILE, data.salary);
@@ -424,7 +371,6 @@ export default function App() {
     };
 
     const updateField = (f, v) => setData(p => ({ ...p, [f]: Number(v) || 0 }));
-    const selectMonth = (m) => setData(p => ({ ...p, selectedMonth: m }));
 
     const toggleGroup = (id) => setData(p => ({ ...p, groups: p.groups.map(g => g.id === id ? { ...g, collapsed: !g.collapsed } : g) }));
     const addItem = (gid) => setData(p => ({ ...p, groups: p.groups.map(g => g.id === gid ? { ...g, items: [...g.items, { id: Date.now().toString(), name: 'New Item', amount: 0 }] } : g) }));
@@ -443,8 +389,8 @@ export default function App() {
     const updateGroup = (id, f, v) => setData(p => ({ ...p, groups: p.groups.map(g => g.id === id ? { ...g, [f]: v } : g) }));
 
     const updateGoal = (id, f, v) => setData(p => ({ ...p, goals: p.goals.map(g => g.id === id ? { ...g, [f]: f === 'name' ? v : (Number(v) || 0) } : g) }));
-    const updateGoalContribution = (gid, m, v) => setData(p => ({ ...p, goals: p.goals.map(g => g.id === gid ? { ...g, monthlyContributions: { ...g.monthlyContributions, [m]: (Number(v) || 0) } } : g) }));
-    const addGoal = () => setData(p => ({ ...p, goals: [...p.goals, { id: Date.now().toString(), name: 'New Goal', target: 0, startingBalance: 0, monthlyContributions: {} }] }));
+    const updateGoalContribution = (gid, v) => setData(p => ({ ...p, goals: p.goals.map(g => g.id === gid ? { ...g, currentContribution: (Number(v) || 0) } : g) }));
+    const addGoal = () => setData(p => ({ ...p, goals: [...p.goals, { id: Date.now().toString(), name: 'New Goal', target: 0, startingBalance: 0, currentContribution: 0 }] }));
 
     const deleteGoal = (id) => requestConfirm('Are you sure you want to delete this goal?', () =>
         setData(p => ({ ...p, goals: p.goals.filter(g => g.id !== id) }))
@@ -460,10 +406,10 @@ export default function App() {
 
         setIsSyncing(true);
         try {
-            const year = data.selectedYear || new Date().getFullYear();
-            const monthIndex = MONTHS.indexOf(data.selectedMonth);
-            const start = new Date(year, monthIndex, 1).toISOString().split('T')[0];
-            const end = new Date(year, monthIndex + 1, 0).toISOString().split('T')[0];
+            // Fetch last 90 days to ensure enough data for rolling metrics
+            const now = new Date();
+            const start = new Date(now.setDate(now.getDate() - 90)).toISOString().split('T')[0];
+            const end = new Date().toISOString().split('T')[0];
 
             // Fetch both transactions and account balances
             const [txResponse, balanceResponse] = await Promise.all([
@@ -526,31 +472,7 @@ export default function App() {
 
                 setTransactions(mapped);
 
-                // Calculate business revenue (Checking only to avoid CC payments counting as income)
-                const bizChecking = txJson.transactions.filter(t => t.account_name === 'Business Checking');
-                const bizRevenue = bizChecking
-                    .filter(t => Number(t.amount) > 0)
-                    .reduce((sum, t) => sum + Number(t.amount), 0);
 
-                // Calculate business expenses (Checking + Credit Card)
-                const expenseAccounts = ['Business Checking', 'Business CC'];
-                const expenseTransactions = txJson.transactions.filter(t => expenseAccounts.includes(t.account_name));
-                const bizExpenses = expenseTransactions
-                    .filter(t => Number(t.amount) < 0)
-                    .reduce((sum, t) => sum + Math.abs(Number(t.amount)), 0);
-
-                // Update monthly business data
-                // Update monthly business data
-                setData(prev => ({
-                    ...prev,
-                    monthlyBiz: {
-                        ...prev.monthlyBiz,
-                        [`${prev.selectedYear}-${prev.selectedMonth}`]: {
-                            revenue: bizRevenue,
-                            expenses: bizExpenses
-                        }
-                    }
-                }));
             }
 
             // Update account balances
@@ -670,7 +592,7 @@ export default function App() {
                                 <input type="number" className="input-inline stat-medium mt-2" value={data.salary} onChange={(e) => updateField('salary', e.target.value)} />
                             </div>
                             <div className="card" style={{ marginBottom: 0 }}>
-                                <span className="card-title">Biz Profit • {data.selectedMonth}</span>
+                                <span className="card-title">Biz Profit • Last {bizRollingPeriod} Days</span>
                                 <div className={`stat-medium mt-2 ${profit >= 0 ? 'text-green' : 'text-red'}`}>{fmt(profit)}</div>
                             </div>
                         </div>
@@ -761,19 +683,7 @@ export default function App() {
                             <p className="text-secondary" style={{ fontSize: 11 }}>Track business finances and salary allocations</p>
                         </div>
 
-                        {/* Month Pills */}
-                        <div className="month-pills" style={{ display: 'flex', gap: 8 }}>
-                            <button
-                                className="month-pill year-pill"
-                                style={{ background: 'var(--accent-primary)', color: '#000', fontWeight: 700, minWidth: 60 }}
-                                onClick={() => setData(p => ({ ...p, selectedYear: p.selectedYear === new Date().getFullYear() ? new Date().getFullYear() - 1 : new Date().getFullYear() }))}
-                            >
-                                {data.selectedYear || new Date().getFullYear()}
-                            </button>
-                            <div style={{ display: 'flex', gap: 8, overflowX: 'auto', paddingBottom: 4 }}>
-                                {MONTHS.map(m => <button key={m} className={`month-pill ${data.selectedMonth === m ? 'active' : ''}`} onClick={() => selectMonth(m)}>{m}</button>)}
-                            </div>
-                        </div>
+
 
                         {/* Salary Input */}
                         <div className="card mb-3">
@@ -783,18 +693,18 @@ export default function App() {
 
                         {/* Business */}
                         <div className="card mb-3">
-                            <div className="card-header"><span className="card-title">Business • {data.selectedMonth}</span></div>
+                            <div className="card-header"><span className="card-title">Business • Last {bizRollingPeriod} Days</span></div>
                             <div className="bento-grid">
                                 <div>
                                     <label className="text-secondary" style={{ fontSize: 10, textTransform: 'uppercase' }}>Revenue</label>
                                     <div className="input-field mt-2" style={{ display: 'flex', alignItems: 'center', height: 44, background: 'var(--card-bg)', border: '1px solid var(--border)', color: 'var(--text-primary)', fontSize: 20, fontWeight: 700 }}>
-                                        {fmt(monthBizCalcs.revenue || currentBiz.revenue)}
+                                        {fmt(profit === 0 && currentBiz.revenue ? currentBiz.revenue : bizCalcs.revenue)}
                                     </div>
                                 </div>
                                 <div>
                                     <label className="text-secondary" style={{ fontSize: 10, textTransform: 'uppercase' }}>Expenses</label>
                                     <div className="input-field mt-2" style={{ display: 'flex', alignItems: 'center', height: 44, background: 'var(--card-bg)', border: '1px solid var(--border)', color: 'var(--text-primary)', fontSize: 20, fontWeight: 700 }}>
-                                        {fmt(monthBizCalcs.expenses || currentBiz.expenses)}
+                                        {fmt(profit === 0 && currentBiz.expenses ? currentBiz.expenses : bizCalcs.expenses)}
                                     </div>
                                 </div>
                             </div>
@@ -856,9 +766,9 @@ export default function App() {
 
                             {data.goals.map(g => {
                                 const totalContributed = Object.values(g.monthlyContributions || {}).reduce((a, b) => a + b, 0);
-                                const totalSaved = g.startingBalance + totalContributed;
+                                const totalSaved = (g.startingBalance || 0) + totalContributed;
                                 const progress = g.target > 0 ? (totalSaved / g.target) * 100 : 0;
-                                const currentContribution = g.monthlyContributions?.[data.selectedMonth] || 0;
+                                const currentContribution = g.currentContribution || 0;
                                 const remaining = Math.max(0, g.target - totalSaved);
                                 const monthsToGoal = (remaining > 0 && currentContribution > 0) ? Math.ceil(remaining / currentContribution) : null;
 
@@ -885,10 +795,10 @@ export default function App() {
                                                 </div>
                                             </div>
                                             <div>
-                                                <label className="text-secondary" style={{ fontSize: 10, textTransform: 'uppercase' }}>{data.selectedMonth} Contrib</label>
+                                                <label className="text-secondary" style={{ fontSize: 10, textTransform: 'uppercase' }}>Contrib</label>
                                                 <div className="flex items-center mt-1">
                                                     <span className="text-dim" style={{ fontSize: 14, marginRight: 2 }}>$</span>
-                                                    <input type="number" className="input-inline text-teal" style={{ fontSize: 18, width: 90, fontWeight: 800 }} value={currentContribution} onChange={(e) => updateGoalContribution(g.id, data.selectedMonth, e.target.value)} />
+                                                    <input type="number" className="input-inline text-teal" style={{ fontSize: 18, width: 90, fontWeight: 800 }} value={g.currentContribution || 0} onChange={(e) => updateGoalContribution(g.id, e.target.value)} />
                                                 </div>
                                             </div>
                                         </div>
@@ -989,17 +899,6 @@ export default function App() {
                             >
                                 <span style={{ fontSize: 12, fontWeight: 700 }} className={accountFilters.bizCC ? 'text-blue' : 'text-dim'}>CC</span>
                             </button>
-
-                            <button
-                                className={`filter-tag ${monthFilter ? 'active' : ''}`}
-                                style={{ flex: 1, padding: '0 12px', height: 42, background: monthFilter ? 'var(--accent-teal)' : 'var(--bg-card)', color: monthFilter ? '#000' : 'var(--text-secondary)' }}
-                                onClick={() => {
-                                    setMonthFilter(!monthFilter);
-                                    if (txLimit < 50) setTxLimit(50);
-                                }}
-                            >
-                                {monthFilter ? `${data.selectedMonth}` : 'All Months'}
-                            </button>
                         </div>
 
                         <div className="card">
@@ -1010,14 +909,7 @@ export default function App() {
                                     const anyAccountFilter = Object.values(accountFilters).some(v => v);
                                     let filtered = transactions;
 
-                                    // Month filter
-                                    if (monthFilter) {
-                                        const monthNum = MONTHS.indexOf(data.selectedMonth);
-                                        filtered = filtered.filter(tx => {
-                                            const txDate = new Date(tx.date);
-                                            return txDate.getMonth() === monthNum && txDate.getFullYear() === data.selectedYear;
-                                        });
-                                    }
+                                    // Account filters only (no month filter)
 
                                     // Account filters (if any active)
                                     if (anyAccountFilter) {
@@ -1042,14 +934,7 @@ export default function App() {
                                     const anyAccountFilter = Object.values(accountFilters).some(v => v);
                                     let filtered = transactions;
 
-                                    // Month filter
-                                    if (monthFilter) {
-                                        const monthNum = MONTHS.indexOf(data.selectedMonth);
-                                        filtered = filtered.filter(tx => {
-                                            const txDate = new Date(tx.date);
-                                            return txDate.getMonth() === monthNum && txDate.getFullYear() === data.selectedYear;
-                                        });
-                                    }
+                                    // Account filters only (no month filter)
 
                                     // Account filters
                                     if (anyAccountFilter) {
@@ -1099,14 +984,7 @@ export default function App() {
                                     // Same filter logic for load more button
                                     const anyAccountFilter = Object.values(accountFilters).some(v => v);
                                     let filtered = transactions;
-                                    // Month filter
-                                    if (monthFilter) {
-                                        const monthNum = MONTHS.indexOf(data.selectedMonth);
-                                        filtered = filtered.filter(tx => {
-                                            const txDate = new Date(tx.date);
-                                            return txDate.getMonth() === monthNum && txDate.getFullYear() === data.selectedYear;
-                                        });
-                                    }
+
                                     if (anyAccountFilter) {
                                         filtered = filtered.filter(tx => {
                                             const acct = (tx.account_name || '').toLowerCase();
