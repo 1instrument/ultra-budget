@@ -240,15 +240,9 @@ export default function App() {
 
     const [page, setPage] = useState('dashboard');
     // chartMode removed
-    const [filterType, setFilterType] = useState('all'); // 'all', 'income', 'expenses'
-    const [filterCategory, setFilterCategory] = useState('all'); // 'all' or specific category name
     const [isSyncing, setIsSyncing] = useState(false);
     const [transactions, setTransactions] = useState(PLACEHOLDER_TXS);
     const [txLimit, setTxLimit] = useState(50);
-
-    // const [showFilters, setShowFilters] = useState(false); // Removed
-    const [filterDateStart, setFilterDateStart] = useState('');
-    const [filterDateEnd, setFilterDateEnd] = useState('');
 
     // Lock Screen State
     const [needsSetup, setNeedsSetup] = useState(() => !localStorage.getItem('ultra_pin_hash'));
@@ -336,36 +330,7 @@ export default function App() {
         return { groups, total };
     }, [transactions]);
 
-    // Transaction filtering (must be before gating)
-    const uniqueCategories = useMemo(() => {
-        const cats = [...new Set(transactions.map(tx => tx.category))].filter(c => c !== 'Income');
-        return cats.sort();
-    }, [transactions]);
 
-    const filteredTxs = useMemo(() => {
-        let txs = transactions;
-        // Filter by type
-        if (filterType === 'income') txs = txs.filter(t => t.amount > 0);
-        if (filterType === 'expenses') txs = txs.filter(t => t.amount < 0);
-
-        if (filterCategory !== 'all') {
-            txs = txs.filter(t => t.category === filterCategory);
-        }
-
-        if (filterDateStart) {
-            txs = txs.filter(t => t.date >= filterDateStart);
-        }
-        if (filterDateEnd) {
-            txs = txs.filter(t => t.date <= filterDateEnd);
-        }
-
-        return txs;
-    }, [transactions, filterType, filterCategory, filterDateStart, filterDateEnd]);
-
-    // Reset pagination when filters change
-    useEffect(() => {
-        setTxLimit(50);
-    }, [filterType, filterCategory, filterDateStart, filterDateEnd]);
 
     // Clear transactions when month changes (to force sync)
     useEffect(() => {
@@ -449,19 +414,27 @@ export default function App() {
 
             // Update transactions
             if (txJson.transactions) {
-                const seenIds = new Set();
                 const mapped = [];
 
-                txJson.transactions.forEach(t => {
-                    if (seenIds.has(t.id)) return;
-                    seenIds.add(t.id);
+                // Helper to determine icon and color based on account
+                const getIconAndColor = (accountName) => {
+                    const isBusiness = accountName?.toLowerCase().includes('business');
+                    const isCC = accountName?.toLowerCase().includes('cc') || accountName?.toLowerCase().includes('credit');
+                    return {
+                        icon: isCC ? CreditCard : (isBusiness ? Building2 : Wallet),
+                        colorClass: isBusiness ? 'text-blue' : 'text-green'
+                    };
+                };
 
+                txJson.transactions.forEach(t => {
                     let amount = Number(t.amount);
 
                     // Fix: Business Checking data is inverted from API (Expenses +, Income -)
                     if (t.account_name === 'Business Checking') {
                         amount = -amount;
                     }
+
+                    const { icon, colorClass } = getIconAndColor(t.account_name);
 
                     mapped.push({
                         id: t.id,
@@ -470,8 +443,9 @@ export default function App() {
                         amount: amount,
                         date: t.date,
                         account_name: t.account_name || 'Unknown',
-                        icon: amount > 0 ? CreditCard : Receipt
-                        // raw: t // Debug usage removed
+                        icon: icon,
+                        colorClass: colorClass,
+                        raw_amount: t.amount // Keep raw for debug
                     });
                 });
 
@@ -520,67 +494,6 @@ export default function App() {
             }
         } catch (e) {
             console.error('Sync failed', e);
-        } finally {
-            setIsSyncing(false);
-        }
-    };
-
-    const syncCategories = async () => {
-        setIsSyncing(true);
-        try {
-            const response = await fetch('/api/lunch-money-categories', {
-                headers: { 'x-ultra-secret': 'ultra-budget-2024-secure' }
-            });
-
-            if (!response.ok) throw new Error('Category sync failed');
-
-            const json = await response.json();
-
-            if (json.categories) {
-                // Auto-map categories to groups using keywords
-                const autoMap = (categoryName) => {
-                    const name = categoryName.toLowerCase();
-                    // Wealth keywords
-                    if (name.includes('saving') || name.includes('invest') || name.includes('retirement') ||
-                        name.includes('401k') || name.includes('ira') || name.includes('stock')) {
-                        return 'wealth';
-                    }
-                    // Fixed keywords
-                    if (name.includes('rent') || name.includes('mortgage') || name.includes('utilit') ||
-                        name.includes('insurance') || name.includes('loan') || name.includes('subscript')) {
-                        return 'fixed';
-                    }
-                    // Default to variable
-                    return 'variable';
-                };
-
-                // Create new groups structure
-                const newGroups = [
-                    { id: 'wealth', name: 'Wealth Building', color: '#C8FF00', collapsed: false, items: [] },
-                    { id: 'fixed', name: 'Fixed Expenses', color: '#5B7FFF', collapsed: false, items: [] },
-                    { id: 'variable', name: 'Variable Spending', color: '#2DD4BF', collapsed: false, items: [] }
-                ];
-
-                // Populate groups with categories
-                json.categories.forEach(cat => {
-                    const groupId = autoMap(cat.name);
-                    const group = newGroups.find(g => g.id === groupId);
-                    if (group) {
-                        group.items.push({
-                            id: cat.id.toString(),
-                            name: cat.name,
-                            amount: 0 // User will set budgets manually
-                        });
-                    }
-                });
-
-                // Update state
-                setData(prev => ({ ...prev, groups: newGroups }));
-                alert(`✅ Synced ${json.categories.length} categories from Lunch Money!`);
-            }
-        } catch (e) {
-            console.error('Category sync failed', e);
-            alert('Category sync failed. Make sure your API key is set in Vercel.');
         } finally {
             setIsSyncing(false);
         }
@@ -702,40 +615,6 @@ export default function App() {
                             <span style={{ fontSize: 11, fontWeight: 500 }}>{dailyPrompt.text}</span>
                         </div>
 
-                        {/* Spending Pie Chart */}
-                        <div className="card mb-3">
-                            <div className="card-header">
-                                <span className="card-title">Spending Breakdown</span>
-                            </div>
-                            <div style={{ display: 'flex', gap: 16, alignItems: 'center' }}>
-                                <div className="pie-chart" style={{
-                                    background: `conic-gradient(
-                                        ${data.groups[0]?.color || '#C8FF00'} 0% ${pct(data.groups[0]?.items.reduce((s, i) => s + i.amount, 0) || 0)}%,
-                                        ${data.groups[1]?.color || '#5B7FFF'} ${pct(data.groups[0]?.items.reduce((s, i) => s + i.amount, 0) || 0)}% ${pct((data.groups[0]?.items.reduce((s, i) => s + i.amount, 0) || 0) + (data.groups[1]?.items.reduce((s, i) => s + i.amount, 0) || 0))}%,
-                                        ${data.groups[2]?.color || '#2DD4BF'} ${pct((data.groups[0]?.items.reduce((s, i) => s + i.amount, 0) || 0) + (data.groups[1]?.items.reduce((s, i) => s + i.amount, 0) || 0))}% 100%
-                                    )`
-                                }} />
-                                <div style={{ flex: 1 }}>
-                                    {data.groups.map(g => {
-                                        const gVal = g.items.reduce((s, i) => s + i.amount, 0);
-                                        const gPct = pct(gVal);
-
-                                        return (
-                                            <div key={g.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-                                                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                                                    <div style={{ width: 10, height: 10, borderRadius: 2, background: g.color }} />
-                                                    <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>{g.name}</span>
-                                                </div>
-                                                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                                                    <span style={{ fontSize: 10, color: 'var(--text-dim)' }}>{gPct}%</span>
-                                                    <span style={{ fontSize: 11, fontWeight: 600 }}>{fmt(gVal)}</span>
-                                                </div>
-                                            </div>
-                                        );
-                                    })}
-                                </div>
-                            </div>
-                        </div>
 
                         {/* Warnings/Tips Card */}
                         {(() => {
@@ -792,11 +671,8 @@ export default function App() {
                                         const totalSaved = (g.startingBalance || 0) + totalContributed;
                                         const progress = g.target > 0 ? (totalSaved / g.target) * 100 : 0;
 
-                                        // Logic: only full width if unpaired (odd total, 1st one)
-                                        const isFullWidth = (data.goals.length % 2 !== 0 && idx === 0);
-
                                         return (
-                                            <div key={g.id} className={`goal-pulse-card ${isFullWidth ? 'full' : 'half'}`}>
+                                            <div key={g.id} className="goal-pulse-card full">
                                                 <div className="flex justify-between items-center mb-1">
                                                     <span className="goal-pulse-name">{g.name}</span>
                                                     <span className="goal-pulse-pct">{progress.toFixed(0)}%</span>
@@ -814,28 +690,9 @@ export default function App() {
                 ) : page === 'budget' ? (
                     /* Budget Page */
                     <>
-                        <div className="mb-3" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <div>
-                                <h1 style={{ fontSize: 18, fontWeight: 700, marginBottom: 4 }}>Budget & Allocations</h1>
-                                <p className="text-secondary" style={{ fontSize: 11 }}>Track business finances and salary allocations</p>
-                            </div>
-                            <button
-                                onClick={syncCategories}
-                                disabled={isSyncing}
-                                style={{
-                                    padding: '8px 12px',
-                                    fontSize: '11px',
-                                    fontWeight: 600,
-                                    background: '#C8FF00',
-                                    color: '#000',
-                                    border: 'none',
-                                    borderRadius: '8px',
-                                    cursor: isSyncing ? 'not-allowed' : 'pointer',
-                                    opacity: isSyncing ? 0.5 : 1
-                                }}
-                            >
-                                {isSyncing ? 'Syncing...' : 'Sync Categories'}
-                            </button>
+                        <div className="mb-3">
+                            <h1 style={{ fontSize: 18, fontWeight: 700, marginBottom: 4 }}>Budget & Allocations</h1>
+                            <p className="text-secondary" style={{ fontSize: 11 }}>Track business finances and salary allocations</p>
                         </div>
 
                         {/* Month Pills */}
@@ -984,7 +841,7 @@ export default function App() {
                 ) : page === 'transactions' ? (
                     /* Transactions Page */
                     <>
-                        {/* Header & Filter Toggle */}
+                        {/* Header */}
                         <div className="flex items-center justify-between mb-3">
                             <h1 style={{ fontSize: 18, fontWeight: 700 }}>Transactions</h1>
                             <button className={`sync-btn ${isSyncing ? 'syncing' : ''}`} onClick={syncLunchMoneyData} disabled={isSyncing}>
@@ -993,67 +850,37 @@ export default function App() {
                             </button>
                         </div>
 
-                        {/* Filter Panel (Permanent) */}
-                        <div className="filter-panel card mb-3">
-                            <div className="grid grid-cols-2 gap-3 mb-3">
-                                <div>
-                                    <label className="text-secondary" style={{ fontSize: 10, textTransform: 'uppercase' }}>Start Date</label>
-                                    <input type="date" className="input-inline w-full mt-1" value={filterDateStart} onChange={(e) => setFilterDateStart(e.target.value)} />
-                                </div>
-                                <div>
-                                    <label className="text-secondary" style={{ fontSize: 10, textTransform: 'uppercase' }}>End Date</label>
-                                    <input type="date" className="input-inline w-full mt-1" value={filterDateEnd} onChange={(e) => setFilterDateEnd(e.target.value)} />
-                                </div>
-                            </div>
-                            <div className="grid grid-cols-2 gap-3 mb-3">
-                                <div>
-                                    <label className="text-secondary" style={{ fontSize: 10, textTransform: 'uppercase' }}>Type</label>
-                                    <select
-                                        className="input-inline w-full mt-1"
-                                        value={filterType}
-                                        onChange={(e) => setFilterType(e.target.value)}
-                                    >
-                                        <option value="all">All Types</option>
-                                        <option value="income">Income</option>
-                                        <option value="expenses">Expenses</option>
-                                    </select>
-                                </div>
-                                <div>
-                                    <label className="text-secondary" style={{ fontSize: 10, textTransform: 'uppercase' }}>Category</label>
-                                    <select
-                                        className="input-inline w-full mt-1"
-                                        value={filterCategory}
-                                        onChange={(e) => setFilterCategory(e.target.value)}
-                                    >
-                                        <option value="all">All Categories</option>
-                                        {uniqueCategories.map(c => <option key={c} value={c}>{c}</option>)}
-                                    </select>
-                                </div>
-                            </div>
-                            <button className="filter-pill" style={{ width: '100%', justifyContent: 'center', background: 'transparent', border: '1px solid var(--border)' }} onClick={() => { setFilterDateStart(''); setFilterDateEnd(''); setFilterCategory('all'); setFilterType('all'); }}>Reset Filters</button>
-                        </div>
-
                         <div className="card">
                             <div className="card-header">
                                 <span className="card-title">Recent Activity</span>
-                                <span className="text-dim" style={{ fontSize: 10 }}>({filteredTxs.length})</span>
+                                <span className="text-dim" style={{ fontSize: 10 }}>({transactions.length})</span>
                             </div>
                             <div className="tx-list">
-                                {filteredTxs.slice(0, txLimit).map(tx => (
-                                    <div key={tx.id} className="tx-item">
-                                        <div className="tx-icon"><tx.icon size={16} className={tx.amount > 0 ? 'text-green' : 'text-secondary'} /></div>
-                                        <div className="tx-details">
-                                            <div className="tx-name">{tx.name}</div>
-                                            <div className="tx-meta">{tx.category} • {tx.date}</div>
+                                {transactions.slice(0, txLimit).map(tx => (
+                                    <div key={tx.id} className="tx-item" style={{ flexDirection: 'column', alignItems: 'stretch' }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                            <div style={{ display: 'flex', alignItems: 'center' }}>
+                                                <div className={`tx-icon ${tx.colorClass === 'text-blue' ? 'tx-icon-blue' : 'tx-icon-green'}`}>
+                                                    <tx.icon size={16} className={tx.colorClass} />
+                                                </div>
+                                                <div className="tx-details">
+                                                    <div className="tx-name">{tx.name}</div>
+                                                    <div className="tx-meta">{tx.category} • {tx.date}</div>
+                                                </div>
+                                            </div>
+                                            <div className={`tx-amount ${tx.amount > 0 ? 'income' : 'expense'}`}>
+                                                {tx.amount > 0 ? '+' : ''}{fmt(tx.amount)}
+                                            </div>
                                         </div>
-                                        <div className={`tx-amount ${tx.amount > 0 ? 'income' : 'expense'}`}>
-                                            {tx.amount > 0 ? '+' : ''}{fmt(tx.amount)}
+                                        {/* Debug Output */}
+                                        <div className="tx-debug">
+                                            [DEBUG] account: "{tx.account_name}" | raw_amount: {tx.raw_amount}
                                         </div>
                                     </div>
                                 ))}
-                                {filteredTxs.length > txLimit && (
+                                {transactions.length > txLimit && (
                                     <button className="load-more-btn" style={{ width: '100%', padding: '12px', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 12, marginTop: 8, fontSize: 13, fontWeight: 600, color: 'var(--text-secondary)' }} onClick={() => setTxLimit(l => l + 50)}>
-                                        Load More ({filteredTxs.length - txLimit} remaining)
+                                        Load More ({transactions.length - txLimit} remaining)
                                     </button>
                                 )}
                             </div>

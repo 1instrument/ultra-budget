@@ -33,6 +33,7 @@ body {
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
   background: var(--bg-base);
   color: var(--text-primary);
+  font-size: 15px;
   -webkit-font-smoothing: antialiased;
   min-height: 100vh;
 }
@@ -616,6 +617,11 @@ input[type=number] {
   color: var(--text-primary);
 }
 
+.nav-item svg {
+  width: 20px;
+  height: 20px;
+}
+
 /* Transactions */
 .tx-list {
   margin-top: 12px;
@@ -625,19 +631,20 @@ input[type=number] {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 12px 0;
+  padding: 14px 0;
   border-bottom: 1px solid rgba(255, 255, 255, 0.04);
 }
 
 .tx-icon {
-  width: 36px;
-  height: 36px;
-  border-radius: 10px;
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
   background: var(--bg-input);
   display: flex;
   align-items: center;
   justify-content: center;
-  margin-right: 12px;
+  margin-right: 14px;
+  flex-shrink: 0;
 }
 
 .tx-details {
@@ -666,6 +673,27 @@ input[type=number] {
 
 .tx-amount.income {
   color: var(--accent-green);
+}
+
+/* Transaction Icon Colors */
+.tx-icon-blue {
+  background: rgba(91, 127, 255, 0.15);
+}
+
+.tx-icon-green {
+  background: rgba(0, 212, 170, 0.15);
+}
+
+/* Debug Output */
+.tx-debug {
+  font-size: 10px;
+  font-family: monospace;
+  color: var(--text-dim);
+  background: rgba(255, 255, 255, 0.03);
+  padding: 6px 10px;
+  margin-top: 8px;
+  border-radius: 6px;
+  border-left: 2px solid var(--accent-amber);
 }
 
 /* Modal */
