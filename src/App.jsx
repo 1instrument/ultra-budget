@@ -470,7 +470,34 @@ export default function App() {
                         {/* Salary Input */}
                         <div className="card mb-3">
                             <span className="card-title">Salary Draw</span>
-                            <input type="number" className="input-inline stat-medium mt-2" style={{ fontSize: 24, fontWeight: 700 }} value={data.salary} onChange={(e) => updateField('salary', e.target.value)} />
+                            <div className="flex items-center gap-2 mt-2">
+                                <span className="text-dim" style={{ fontSize: 24, fontWeight: 700 }}>$</span>
+                                <input type="number" className="input-inline stat-medium" style={{ fontSize: 24, fontWeight: 700, flex: 1 }} value={data.salary} onChange={(e) => updateField('salary', e.target.value)} />
+                            </div>
+
+                            <div className="progress-container mt-3" style={{ height: 6, background: 'var(--bg-input)' }}>
+                                <div
+                                    className="progress-fill"
+                                    style={{
+                                        width: `${Math.min((totalPersonal / data.salary) * 100, 100)}%`,
+                                        background: (totalPersonal > data.salary) ? 'var(--accent-red)' : 'var(--accent-primary)',
+                                        transition: 'width 0.3s ease, background 0.3s ease'
+                                    }}
+                                />
+                            </div>
+
+                            <div className="flex justify-between items-center mt-2">
+                                <span style={{ fontSize: 11, color: 'var(--text-dim)', fontWeight: 500 }}>
+                                    Allocated: <span style={{ color: 'var(--text-secondary)' }}>{fmt(totalPersonal)}</span>
+                                </span>
+                                <span style={{
+                                    fontSize: 11,
+                                    fontWeight: 700,
+                                    color: (totalPersonal > data.salary) ? 'var(--accent-red)' : 'var(--text-secondary)'
+                                }}>
+                                    {data.salary > 0 ? ((totalPersonal / data.salary) * 100).toFixed(0) : 0}% of Salary
+                                </span>
+                            </div>
                         </div>
 
                         {/* Allocations */}
