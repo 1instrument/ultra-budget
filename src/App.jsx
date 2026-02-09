@@ -48,7 +48,8 @@ const INITIAL_STATE = {
         { id: '1', name: 'Emergency Fund', target: 10000, startingBalance: 2000, monthlyContributions: {} },
         { id: '2', name: 'New Car', target: 35000, startingBalance: 5000, monthlyContributions: {} }
     ],
-    notes: ''
+    notes: '',
+    flaggedIds: []
 };
 
 
@@ -292,7 +293,8 @@ export default function App() {
         personalChk: false,
         personalCC: false,
         bizChk: false,
-        bizCC: false
+        bizCC: false,
+        flagged: false
     });
     // Lock Screen State
     const [needsSetup, setNeedsSetup] = useState(() => !localStorage.getItem('ultra_pin_hash'));
@@ -314,6 +316,7 @@ export default function App() {
             if (parsed.streak === undefined) parsed.streak = 0;
             if (!parsed.lastCheckIn) parsed.lastCheckIn = '';
             if (parsed.notes === undefined) parsed.notes = '';
+            if (!parsed.flaggedIds) parsed.flaggedIds = [];
             return parsed;
         }
         return INITIAL_STATE;
@@ -451,6 +454,16 @@ export default function App() {
 
     const updateGroup = (id, f, v) => setData(p => ({ ...p, groups: p.groups.map(g => g.id === id ? { ...g, [f]: v } : g) }));
 
+    const toggleFlag = (id) => setData(p => {
+        const isFlagged = p.flaggedIds.includes(id);
+        return {
+            ...p,
+            flaggedIds: isFlagged
+                ? p.flaggedIds.filter(fid => fid !== id)
+                : [...p.flaggedIds, id]
+        };
+    });
+
     const updateGoal = (id, f, v) => setData(p => ({ ...p, goals: p.goals.map(g => g.id === id ? { ...g, [f]: f === 'name' ? v : (Number(v) || 0) } : g) }));
     const updateGoalContribution = (gid, v) => setData(p => ({ ...p, goals: p.goals.map(g => g.id === gid ? { ...g, currentContribution: (Number(v) || 0) } : g) }));
     const addGoal = () => setData(p => ({ ...p, goals: [...p.goals, { id: Date.now().toString(), name: 'New Goal', target: 0, startingBalance: 0, currentContribution: 0 }] }));
@@ -554,6 +567,16 @@ export default function App() {
             }
         } catch (e) {
             console.error('Sync failed', e);
+            // Fallback for debug/demo mode
+            if (debugMode) {
+                const mock = [
+                    { id: 'm1', name: 'Waitrose', category: 'Groceries', amount: -85.20, date: new Date().toISOString().split('T')[0], account_name: 'Personal Checking', icon: Wallet, isCC: false, colorClass: 'text-green' },
+                    { id: 'm2', name: 'Shopify Payout', category: 'Income', amount: 1250.00, date: new Date().toISOString().split('T')[0], account_name: 'Business Checking', icon: Building2, isCC: false, colorClass: 'text-blue' },
+                    { id: 'm3', name: 'Apple.com', category: 'Shopping', amount: -199.00, date: new Date().toISOString().split('T')[0], account_name: 'Personal CC', icon: Wallet, isCC: true, colorClass: 'text-green' },
+                    { id: 'm4', name: 'AWS Cloud', category: 'Business', amount: -45.00, date: new Date().toISOString().split('T')[0], account_name: 'Business CC', icon: Building2, isCC: true, colorClass: 'text-blue' }
+                ];
+                setTransactions(mock);
+            }
         } finally {
             setIsSyncing(false);
         }
@@ -810,7 +833,7 @@ export default function App() {
                         </div>
 
                         {/* Filter Bar */}
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 16 }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 0.5fr', gap: 12, marginBottom: 16 }}>
                             {/* Personal Group */}
                             <div>
                                 <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-dim)', textTransform: 'uppercase', marginBottom: 6, paddingLeft: 4 }}>Personal</div>
@@ -872,6 +895,23 @@ export default function App() {
                                     </button>
                                 </div>
                             </div>
+
+                            {/* Flagged Group */}
+                            <div>
+                                <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-dim)', textTransform: 'uppercase', marginBottom: 6, paddingLeft: 4 }}>Review</div>
+                                <button
+                                    onClick={() => setAccountFilters(f => ({ ...f, flagged: !f.flagged }))}
+                                    style={{
+                                        width: '100%', height: 42, border: 'none', cursor: 'pointer', borderRadius: 12,
+                                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                        opacity: accountFilters.flagged ? 1 : 0.8,
+                                        boxShadow: accountFilters.flagged ? '0 0 0 2px var(--accent-amber)' : 'none',
+                                        background: accountFilters.flagged ? 'var(--bg-card-elevated)' : 'var(--bg-card)'
+                                    }}
+                                >
+                                    <FileText size={16} className={accountFilters.flagged ? 'text-amber' : 'text-secondary'} style={{ opacity: accountFilters.flagged ? 1 : 0.6 }} />
+                                </button>
+                            </div>
                         </div>
 
                         <div className="card">
@@ -915,6 +955,10 @@ export default function App() {
                                             const acct = (tx.account_name || '').toLowerCase();
                                             const isBiz = acct.includes('business');
                                             const isCC = acct.includes('cc') || acct.includes('credit');
+                                            const isFlagged = data.flaggedIds.includes(tx.id);
+
+                                            if (accountFilters.flagged && isFlagged) return true;
+                                            if (accountFilters.flagged && !isFlagged && !accountFilters.personalChk && !accountFilters.personalCC && !accountFilters.bizChk && !accountFilters.bizCC) return false;
 
                                             if (accountFilters.personalChk && !isBiz && !isCC) return true;
                                             if (accountFilters.personalCC && !isBiz && isCC) return true;
@@ -928,6 +972,19 @@ export default function App() {
                                         <div key={tx.id} className="tx-item" style={{ flexDirection: 'column', alignItems: 'stretch' }}>
                                             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                                                 <div style={{ display: 'flex', alignItems: 'center' }}>
+                                                    <button
+                                                        onClick={(e) => { e.stopPropagation(); toggleFlag(tx.id); }}
+                                                        style={{
+                                                            background: 'none', border: 'none', padding: '4px 8px',
+                                                            marginLeft: -8, cursor: 'pointer', transition: 'transform 0.2s'
+                                                        }}
+                                                    >
+                                                        <FileText
+                                                            size={14}
+                                                            className={data.flaggedIds.includes(tx.id) ? 'text-amber' : 'text-dim'}
+                                                            style={{ opacity: data.flaggedIds.includes(tx.id) ? 1 : 0.3 }}
+                                                        />
+                                                    </button>
                                                     <div className={`tx-icon ${tx.colorClass === 'text-blue' ? 'tx-icon-blue' : 'tx-icon-green'}`}>
                                                         {tx.isCC ? (
                                                             <span className={tx.colorClass} style={{ fontSize: 12, fontWeight: 700 }}>CC</span>
