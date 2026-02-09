@@ -10,6 +10,7 @@ import {
 
 
 import { useSwipe } from './useSwipe';
+import { supabase } from './supabase';
 
 const PAGE_ORDER = ['home', 'transactions', 'notes', 'strategy'];
 const CURRENT_DAY = new Date().getDate();
@@ -67,6 +68,86 @@ function getDailyPrompt() {
     if (hour < 10) return { icon: Zap, text: "Morning Check: Review yesterday's transactions." };
     if (hour > 20) return { icon: Moon, text: "Nightly Reflection: How balanced was today's spending?" };
     return { icon: ShieldCheck, text: "Budget Check: Your allocations are all set." };
+}
+
+function Auth({ onComplete }) {
+    const [email, setEmail] = useState('');
+    const [password, setPassword] = useState('');
+    const [loading, setLoading] = useState(false);
+    const [isSignup, setIsSignup] = useState(false);
+    const [error, setError] = useState('');
+
+    const handleAuth = async (e) => {
+        e.preventDefault();
+        setLoading(true);
+        setError('');
+
+        try {
+            const { error: authError } = isSignup
+                ? await supabase.auth.signUp({ email, password })
+                : await supabase.auth.signInWithPassword({ email, password });
+
+            if (authError) throw authError;
+            if (isSignup) alert('Check your email for the confirmation link!');
+            onComplete();
+        } catch (err) {
+            setError(err.message);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    return (
+        <div style={{ padding: 20 }}>
+            <h2 style={{ fontSize: 18, marginBottom: 4 }}>{isSignup ? 'Create Account' : 'Cloud Sync'}</h2>
+            <p className="text-secondary" style={{ fontSize: 11, marginBottom: 16 }}>
+                {isSignup ? 'Start syncing your budget across devices.' : 'Log in to sync with your partner.'}
+            </p>
+
+            <form onSubmit={handleAuth} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                    <label style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-dim)' }}>EMAIL</label>
+                    <input
+                        type="email"
+                        className="lock-input"
+                        style={{ background: 'var(--bg-card)', border: '1px solid var(--bg-input)', fontSize: 14, width: '100%', borderRadius: 12 }}
+                        value={email}
+                        onChange={e => setEmail(e.target.value)}
+                        required
+                    />
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                    <label style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-dim)' }}>PASSWORD</label>
+                    <input
+                        type="password"
+                        className="lock-input"
+                        style={{ background: 'var(--bg-card)', border: '1px solid var(--bg-input)', fontSize: 14, width: '100%', borderRadius: 12 }}
+                        value={password}
+                        onChange={e => setPassword(e.target.value)}
+                        required
+                    />
+                </div>
+
+                {error && <div style={{ color: '#ff4444', fontSize: 11 }}>{error}</div>}
+
+                <button
+                    type="submit"
+                    className="lock-btn"
+                    disabled={loading}
+                    style={{ marginTop: 8, opacity: loading ? 0.7 : 1 }}
+                >
+                    {loading ? 'Processing...' : isSignup ? 'Sign Up' : 'Log In'}
+                </button>
+            </form>
+
+            <button
+                onClick={() => setIsSignup(!isSignup)}
+                style={{ background: 'none', border: 'none', color: 'var(--accent-blue)', fontSize: 12, marginTop: 16, width: '100%', cursor: 'pointer', textAlign: 'center' }}
+            >
+                {isSignup ? 'Already have an account? Log in' : "Don't have an account? Sign up"}
+            </button>
+        </div>
+    );
 }
 
 function ConfirmationModal({ isOpen, message, onConfirm, onCancel }) {
@@ -219,6 +300,9 @@ export default function App() {
 
     // Modal State - MUST be before any conditional returns (React hooks rule)
     const [confirmModal, setConfirmModal] = useState({ isOpen: false, message: '', onConfirm: null });
+    const [authModalOpen, setAuthModalOpen] = useState(false);
+    const [session, setSession] = useState(null);
+    const [syncStatus, setSyncStatus] = useState('idle'); // idle, syncing, success, error
     const [data, setData] = useState(() => {
         const saved = localStorage.getItem('ultra_budget_v4');
         if (saved) {
@@ -237,6 +321,31 @@ export default function App() {
 
     useEffect(() => {
         localStorage.setItem('ultra_budget_v4', JSON.stringify(data));
+
+        // PUSH to Supabase if logged in
+        if (session) {
+            const pushData = async () => {
+                setSyncStatus('syncing');
+                const { error } = await supabase
+                    .from('app_state')
+                    .upsert({
+                        id: session.user.id,
+                        user_email: session.user.email,
+                        data: data,
+                        updated_at: new Date().toISOString()
+                    });
+                if (error) {
+                    console.error('Push error:', error);
+                    setSyncStatus('error');
+                } else {
+                    setSyncStatus('success');
+                    setTimeout(() => setSyncStatus('idle'), 2000);
+                }
+            };
+
+            const timeoutId = setTimeout(pushData, 2000); // Debounce push
+            return () => clearTimeout(timeoutId);
+        }
 
         // Streak logic
         const today = new Date().toISOString().split('T')[0];
@@ -257,7 +366,38 @@ export default function App() {
                 streak: newStreak
             }));
         }
-    }, [data]);
+    }, [data, session]);
+
+    // Handle Auth Session
+    useEffect(() => {
+        supabase.auth.getSession().then(({ data: { session } }) => {
+            setSession(session);
+        });
+
+        const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+            setSession(session);
+        });
+
+        return () => subscription.unsubscribe();
+    }, []);
+
+    // PULL from Supabase on login
+    useEffect(() => {
+        if (session) {
+            const pullData = async () => {
+                const { data: cloudState, error } = await supabase
+                    .from('app_state')
+                    .select('data')
+                    .eq('id', session.user.id)
+                    .single();
+
+                if (cloudState && !error) {
+                    setData(cloudState.data);
+                }
+            };
+            pullData();
+        }
+    }, [session]);
 
     // progress/totals calculations
     const totalPersonal = useMemo(() => data.groups.reduce((a, g) => a + g.items.reduce((s, i) => s + i.amount, 0), 0), [data.groups]);
@@ -455,6 +595,36 @@ export default function App() {
             <div className="app-container" {...swipeHandlers}>
                 {page === 'home' ? (
                     <>
+                        {/* Cloud Sync Status */}
+                        <div className="card mb-3" style={{
+                            background: session ? 'rgba(45, 212, 191, 0.05)' : 'rgba(91, 127, 255, 0.05)',
+                            padding: 12,
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            border: '1px solid rgba(255,255,255,0.05)'
+                        }}>
+                            <div className="flex items-center gap-2">
+                                <div style={{
+                                    width: 8, height: 8, borderRadius: '50%',
+                                    background: session ? (syncStatus === 'syncing' ? '#C8FF00' : '#2DD4BF') : '#5B7FFF'
+                                }} />
+                                <span style={{ fontSize: 13, fontWeight: 600 }}>
+                                    {session ? 'Cloud Sync Active' : 'Local Only'}
+                                </span>
+                            </div>
+                            <button
+                                onClick={() => session ? supabase.auth.signOut() : setAuthModalOpen(true)}
+                                style={{
+                                    background: 'var(--bg-card-elevated)', border: 'none',
+                                    padding: '6px 12px', borderRadius: 8, fontSize: 11, cursor: 'pointer',
+                                    color: 'var(--text-primary)'
+                                }}
+                            >
+                                {session ? 'Log Out' : 'Enable Sync'}
+                            </button>
+                        </div>
+
                         {/* Home View: Balances + Salary + Allocations + Goals */}
                         <div className="account-section">
                             <div className="account-section-title">Account Balances</div>
@@ -918,6 +1088,22 @@ export default function App() {
                     </>
                 )}
             </div>
+
+            {/* Cloud Sync Modal */}
+            {authModalOpen && (
+                <div className="modal-overlay" style={{ zIndex: 1000 }}>
+                    <div className="modal-content" style={{ padding: 0, width: '90%', maxWidth: 400, borderRadius: 20, overflow: 'hidden' }}>
+                        <Auth onComplete={() => setAuthModalOpen(false)} />
+                        <button
+                            className="btn-modal btn-cancel"
+                            style={{ width: '100%', borderRadius: 0, border: 'none', borderTop: '1px solid rgba(255,255,255,0.05)' }}
+                            onClick={() => setAuthModalOpen(false)}
+                        >
+                            Close
+                        </button>
+                    </div>
+                </div>
+            )}
             {/* Bottom Nav */}
             <nav className="bottom-nav">
                 <button className={`nav-item ${page === 'home' ? 'active' : ''}`} onClick={() => setPage('home')}>
