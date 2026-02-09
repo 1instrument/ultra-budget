@@ -367,10 +367,13 @@ export default function App() {
 
                     const { icon, isCC, colorClass } = getIconAndColor(t.account_name);
 
-                    // Parse transaction name - simplify Shopify transactions
+                    // Parse transaction name - simplify Shopify and Gusto transactions
                     let displayName = t.payee;
-                    if (t.account_name === 'Business Checking' && t.payee?.toLowerCase().includes('shopify')) {
+                    const lowerPayee = (t.payee || '').toLowerCase();
+                    if (lowerPayee.includes('shopify')) {
                         displayName = 'Shopify';
+                    } else if (lowerPayee.includes('gusto')) {
+                        displayName = 'Gusto';
                     }
 
                     mapped.push({
