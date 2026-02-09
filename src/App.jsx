@@ -843,17 +843,13 @@ export default function App() {
             </div>
             {/* Bottom Nav */}
             <nav className="bottom-nav">
-                <button className={`nav-item ${page === 'dashboard' ? 'active' : ''}`} onClick={() => setPage('dashboard')}>
-                    <LayoutDashboard size={16} />
-                    <span>Dashboard</span>
-                </button>
-                <button className={`nav-item ${page === 'budget' ? 'active' : ''}`} onClick={() => setPage('budget')}>
-                    <DollarSign size={16} />
-                    <span>Budget</span>
+                <button className={`nav-item ${page === 'home' ? 'active' : ''}`} onClick={() => setPage('home')}>
+                    <Home size={16} />
+                    <span>Home</span>
                 </button>
                 <button className={`nav-item ${page === 'transactions' ? 'active' : ''}`} onClick={() => setPage('transactions')}>
                     <Receipt size={16} />
-                    <span>Transactions</span>
+                    <span>Activity</span>
                 </button>
                 <button className={`nav-item ${page === 'strategy' ? 'active' : ''}`} onClick={() => setPage('strategy')}>
                     <Target size={16} />
