@@ -12,7 +12,7 @@ import {
 import { useSwipe } from './useSwipe';
 import { supabase } from './supabase';
 
-const PAGE_ORDER = ['home', 'transactions', 'notes', 'strategy'];
+const PAGE_ORDER = ['home', 'transactions', 'notes', 'strategy', 'profile'];
 const CURRENT_DAY = new Date().getDate();
 
 const INITIAL_STATE = {
@@ -154,128 +154,60 @@ function Auth({ onComplete }) {
 function ConfirmationModal({ isOpen, message, onConfirm, onCancel }) {
     if (!isOpen) return null;
     return (
-        <div className="modal-overlay">
+        <div className="modal-overlay" style={{ zIndex: 2000 }}>
             <div className="modal-content">
                 <div className="modal-title">Confirm Action</div>
                 <div className="modal-text">{message}</div>
                 <div className="modal-actions">
                     <button className="btn-modal btn-cancel" onClick={onCancel}>Cancel</button>
-                    <button className="btn-modal btn-confirm" onClick={onConfirm}>Delete</button>
+                    <button className="btn-modal btn-confirm" onClick={onConfirm}>Confirm</button>
                 </div>
             </div>
         </div>
     );
 }
 
-// Simple hash function for PIN (not cryptographically secure, but sufficient for client-side gating)
-const hashPin = (pin) => {
-    let hash = 0;
-    for (let i = 0; i < pin.length; i++) {
-        const char = pin.charCodeAt(i);
-        hash = ((hash << 5) - hash) + char;
-        hash = hash & hash; // Convert to 32bit integer
-    }
-    return hash.toString(16);
-};
-
-function SetupPin({ onComplete }) {
-    const [pin, setPin] = useState('');
-    const [confirm, setConfirm] = useState('');
-    const [error, setError] = useState('');
-
-    const handleSubmit = (e) => {
-        e.preventDefault();
-        if (pin.length < 4) {
-            setError('PIN must be at least 4 digits');
-            return;
-        }
-        if (pin !== confirm) {
-            setError('PINs do not match');
-            return;
-        }
-        localStorage.setItem('ultra_pin_hash', hashPin(pin));
-        sessionStorage.setItem('ultra_unlocked', 'true');
-        // Use setTimeout to ensure React has time to process state change
-        setTimeout(() => onComplete(), 0);
-    };
-
+function ProfilePage({ session }) {
     return (
-        <div className="lock-screen">
-            <div className="lock-card">
-                <div className="lock-icon">🔐</div>
-                <div className="lock-title">Create Your PIN</div>
-                <div className="lock-subtitle">Secure your budget dashboard</div>
-                <form onSubmit={handleSubmit}>
-                    <input
-                        type="password"
-                        inputMode="numeric"
-                        pattern="[0-9]*"
-                        value={pin}
-                        onChange={(e) => setPin(e.target.value.replace(/\D/g, ''))}
-                        placeholder="Enter 4-6 digit PIN"
-                        autoFocus
-                        maxLength={6}
-                        className="lock-input"
-                    />
-                    <input
-                        type="password"
-                        inputMode="numeric"
-                        pattern="[0-9]*"
-                        value={confirm}
-                        onChange={(e) => setConfirm(e.target.value.replace(/\D/g, ''))}
-                        placeholder="Confirm PIN"
-                        maxLength={6}
-                        className="lock-input"
-                    />
-                    {error && <div className="lock-error">{error}</div>}
-                    <button type="submit" className="lock-btn">Set PIN</button>
-                </form>
+        <div style={{ padding: 20 }}>
+            <h1 style={{ fontSize: 24, fontWeight: 800, marginBottom: 8 }}>Profile</h1>
+            <p className="text-secondary" style={{ fontSize: 14, marginBottom: 32 }}>Manage your account and preferences.</p>
+
+            <div className="card" style={{ marginBottom: 24 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 16 }}>
+                    <div style={{
+                        width: 48, height: 48, borderRadius: '50%',
+                        background: 'var(--accent-blue)', display: 'flex',
+                        alignItems: 'center', justifyContent: 'center',
+                        fontSize: 20, fontWeight: 700, color: '#fff'
+                    }}>
+                        {session?.user?.email?.charAt(0).toUpperCase()}
+                    </div>
+                    <div>
+                        <div style={{ fontSize: 16, fontWeight: 600 }}>{session?.user?.email}</div>
+                        <div className="text-dim" style={{ fontSize: 12 }}>Standard Account</div>
+                    </div>
+                </div>
             </div>
-        </div>
-    );
-}
 
-function LockScreen({ onUnlock }) {
-    const [pin, setPin] = useState('');
-    const [error, setError] = useState('');
-    const [attempts, setAttempts] = useState(0);
-
-    const handleSubmit = (e) => {
-        e.preventDefault();
-        const storedHash = localStorage.getItem('ultra_pin_hash');
-        if (hashPin(pin) === storedHash) {
-            console.log('PIN correct, unlocking...');
-            sessionStorage.setItem('ultra_unlocked', 'true');
-            onUnlock();
-        } else {
-            setAttempts(a => a + 1);
-            setError(`Incorrect PIN${attempts >= 2 ? ` (${attempts + 1} attempts)` : ''}`);
-            setPin('');
-        }
-    };
-
-    return (
-        <div className="lock-screen">
-            <div className="lock-card">
-                <div className="lock-icon">🔒</div>
-                <div className="lock-title">Ultra Budget</div>
-                <div className="lock-subtitle">Enter PIN to unlock</div>
-                <form onSubmit={handleSubmit}>
-                    <input
-                        type="password"
-                        inputMode="numeric"
-                        pattern="[0-9]*"
-                        value={pin}
-                        onChange={(e) => setPin(e.target.value.replace(/\D/g, ''))}
-                        placeholder="Enter PIN"
-                        autoFocus
-                        maxLength={6}
-                        className="lock-input"
-                    />
-                    {error && <div className="lock-error">{error}</div>}
-                    <button type="submit" className="lock-btn">Unlock</button>
-                </form>
+            <div className="card" style={{ marginBottom: 24 }}>
+                <div className="flex justify-between items-center mb-4">
+                    <span style={{ fontSize: 14, fontWeight: 600 }}>App Version</span>
+                    <span className="text-dim" style={{ fontSize: 14 }}>1.1.0</span>
+                </div>
+                <div className="flex justify-between items-center">
+                    <span style={{ fontSize: 14, fontWeight: 600 }}>Cloud Sync</span>
+                    <span className="text-green" style={{ fontSize: 14, fontWeight: 600 }}>Enabled</span>
+                </div>
             </div>
+
+            <button
+                onClick={() => supabase.auth.signOut()}
+                className="btn-modal btn-cancel"
+                style={{ width: '100%', padding: '14px', borderRadius: 12, border: '1px solid rgba(255,255,255,0.05)', background: 'rgba(255,68,68,0.1)', color: '#ff4444' }}
+            >
+                Log Out
+            </button>
         </div>
     );
 }
@@ -296,9 +228,6 @@ export default function App() {
         bizCC: false,
         flagged: false
     });
-    // Lock Screen State
-    const [needsSetup, setNeedsSetup] = useState(() => !localStorage.getItem('ultra_pin_hash'));
-    const [isLocked, setIsLocked] = useState(() => sessionStorage.getItem('ultra_unlocked') !== 'true');
 
     // Modal State - MUST be before any conditional returns (React hooks rule)
     const [confirmModal, setConfirmModal] = useState({ isOpen: false, message: '', onConfirm: null });
@@ -599,12 +528,20 @@ export default function App() {
         }
     });
 
-    // Gate the app behind PIN - AFTER all hooks are defined
-    if (needsSetup) {
-        return <SetupPin onComplete={() => { setNeedsSetup(false); setIsLocked(false); }} />;
-    }
-    if (isLocked) {
-        return <LockScreen onUnlock={() => setIsLocked(false)} />;
+    // Gate the app behind Supabase Auth
+    if (!session) {
+        return (
+            <div className="lock-screen">
+                <div className="lock-card" style={{ padding: 0, overflow: 'hidden', width: '90%', maxWidth: 400 }}>
+                    <div style={{ padding: '32px 24px 8px', textAlign: 'center' }}>
+                        <div style={{ fontSize: 32, marginBottom: 8 }}>💎</div>
+                        <h1 style={{ fontSize: 24, fontWeight: 800, marginBottom: 4 }}>Ultra Budget</h1>
+                        <p className="text-secondary" style={{ fontSize: 13 }}>Personal & Business Cashflow</p>
+                    </div>
+                    <Auth onComplete={() => { }} />
+                </div>
+            </div>
+        );
     }
 
     return (
@@ -618,34 +555,13 @@ export default function App() {
             <div className="app-container" {...swipeHandlers}>
                 {page === 'home' ? (
                     <>
-                        {/* Cloud Sync Status */}
-                        <div className="card mb-3" style={{
-                            background: session ? 'rgba(45, 212, 191, 0.05)' : 'rgba(91, 127, 255, 0.05)',
-                            padding: 12,
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'space-between',
-                            border: '1px solid rgba(255,255,255,0.05)'
-                        }}>
-                            <div className="flex items-center gap-2">
-                                <div style={{
-                                    width: 8, height: 8, borderRadius: '50%',
-                                    background: session ? (syncStatus === 'syncing' ? '#C8FF00' : '#2DD4BF') : '#5B7FFF'
-                                }} />
-                                <span style={{ fontSize: 13, fontWeight: 600 }}>
-                                    {session ? 'Cloud Sync Active' : 'Local Only'}
-                                </span>
+                        {/* Daily Greeting */}
+                        <div className="mb-4">
+                            <div style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 2, display: 'flex', alignItems: 'center', gap: 6 }}>
+                                <dailyPrompt.icon size={12} className="text-dim" />
+                                {dailyPrompt.text}
                             </div>
-                            <button
-                                onClick={() => session ? supabase.auth.signOut() : setAuthModalOpen(true)}
-                                style={{
-                                    background: 'var(--bg-card-elevated)', border: 'none',
-                                    padding: '6px 12px', borderRadius: 8, fontSize: 11, cursor: 'pointer',
-                                    color: 'var(--text-primary)'
-                                }}
-                            >
-                                {session ? 'Log Out' : 'Enable Sync'}
-                            </button>
+                            <h1 style={{ fontSize: 24, fontWeight: 800 }}>Welcome Back</h1>
                         </div>
 
                         {/* Home View: Balances + Salary + Allocations + Goals */}
@@ -803,6 +719,8 @@ export default function App() {
                             <button className="add-item-btn" onClick={addGoal}><Plus size={11} /> Add Goal</button>
                         </div>
                     </>
+                ) : page === 'profile' ? (
+                    <ProfilePage session={session} />
                 ) : page === 'transactions' ? (
                     /* Transactions Page */
                     <>
@@ -1161,26 +1079,48 @@ export default function App() {
                     </div>
                 </div>
             )}
+
+            {/* Confirmation Modal (Restored/Added) */}
+            {/* Assuming a state like `confirmationModalOpen` and props like `onConfirm`, `onCancel`, `message` */}
+            {/* {confirmationModalOpen && (
+                <ConfirmationModal
+                    message="Are you sure you want to perform this action?"
+                    onConfirm={() => { console.log('Confirmed'); setConfirmationModalOpen(false); }}
+                    onCancel={() => setConfirmationModalOpen(false)}
+                />
+            )} */}
+
             {/* Bottom Nav */}
-            <nav className="bottom-nav">
-                <button className={`nav-item ${page === 'home' ? 'active' : ''}`} onClick={() => setPage('home')}>
-                    <Home size={16} />
+            {/* Header-like status for desktop/web context if needed, otherwise rely on tabs */}
+            <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, height: 75, background: 'rgba(10,10,12,0.95)', backdropFilter: 'blur(20px)', borderTop: '1px solid rgba(255,255,255,0.05)', display: 'flex', justifyContent: 'space-around', alignItems: 'center', paddingBottom: 15, zIndex: 100 }}>
+                <button onClick={() => setPage('home')} className={`nav-item ${page === 'home' ? 'active' : ''}`}>
+                    <Home size={20} />
                     <span>Home</span>
                 </button>
-                <button className={`nav-item ${page === 'transactions' ? 'active' : ''}`} onClick={() => setPage('transactions')}>
-                    <Receipt size={16} />
+                <button onClick={() => setPage('transactions')} className={`nav-item ${page === 'transactions' ? 'active' : ''}`}>
+                    <Receipt size={20} />
                     <span>Activity</span>
                 </button>
-                <button className={`nav-item ${page === 'notes' ? 'active' : ''}`} onClick={() => setPage('notes')}>
-                    <StickyNote size={16} />
+                <button onClick={() => setPage('notes')} className={`nav-item ${page === 'notes' ? 'active' : ''}`}>
+                    <StickyNote size={20} />
                     <span>Notes</span>
                 </button>
-                <button className={`nav-item ${page === 'strategy' ? 'active' : ''}`} onClick={() => setPage('strategy')}>
-                    <Target size={16} />
+                <button onClick={() => setPage('strategy')} className={`nav-item ${page === 'strategy' ? 'active' : ''}`}>
+                    <Target size={20} />
                     <span>Strategy</span>
                 </button>
-            </nav>
+                <button onClick={() => setPage('profile')} className={`nav-item ${page === 'profile' ? 'active' : ''}`}>
+                    <User size={20} />
+                    <span>Profile</span>
+                </button>
+            </div>
+
+            <ConfirmationModal
+                isOpen={confirmModal.isOpen}
+                message={confirmModal.message}
+                onConfirm={confirmModal.onConfirm}
+                onCancel={() => setConfirmModal({ isOpen: false, message: '', onConfirm: null })}
+            />
         </>
     );
 }
-
