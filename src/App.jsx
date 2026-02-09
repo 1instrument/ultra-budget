@@ -3,14 +3,15 @@ import {
     Plus, Trash2, ChevronDown, ChevronRight, TrendingUp, TrendingDown,
     Lightbulb, Wallet, Building2, Sparkles, LayoutDashboard, Receipt,
     Coffee, ShoppingBag, Zap, Car, Home, CreditCard, Target, CalendarCheck,
-    Users, Clock, CheckCircle2, DollarSign, Filter, ShieldCheck, Moon
+    Users, Clock, CheckCircle2, DollarSign, Filter, ShieldCheck, Moon,
+    FileText, StickyNote
 } from 'lucide-react';
 
 
 
 import { useSwipe } from './useSwipe';
 
-const PAGE_ORDER = ['home', 'transactions', 'strategy'];
+const PAGE_ORDER = ['home', 'transactions', 'notes', 'strategy'];
 const CURRENT_DAY = new Date().getDate();
 
 const INITIAL_STATE = {
@@ -45,7 +46,8 @@ const INITIAL_STATE = {
     goals: [
         { id: '1', name: 'Emergency Fund', target: 10000, startingBalance: 2000, monthlyContributions: {} },
         { id: '2', name: 'New Car', target: 35000, startingBalance: 5000, monthlyContributions: {} }
-    ]
+    ],
+    notes: ''
 };
 
 
@@ -227,6 +229,7 @@ export default function App() {
             if (!parsed.goals) parsed.goals = INITIAL_STATE.goals;
             if (parsed.streak === undefined) parsed.streak = 0;
             if (!parsed.lastCheckIn) parsed.lastCheckIn = '';
+            if (parsed.notes === undefined) parsed.notes = '';
             return parsed;
         }
         return INITIAL_STATE;
@@ -637,52 +640,68 @@ export default function App() {
                         </div>
 
                         {/* Filter Bar */}
-                        <div style={{ display: 'flex', gap: 8, marginBottom: 12, alignItems: 'center' }}>
-                            {/* Account Filters - styled like tx-icon */}
-                            <button
-                                onClick={() => setAccountFilters(f => ({ ...f, personalChk: !f.personalChk }))}
-                                className={accountFilters.personalChk ? 'tx-icon tx-icon-green' : 'tx-icon'}
-                                style={{
-                                    width: 42, height: 42, border: 'none', cursor: 'pointer',
-                                    opacity: accountFilters.personalChk ? 1 : 0.5,
-                                    boxShadow: accountFilters.personalChk ? '0 0 0 2px var(--accent-green)' : 'none'
-                                }}
-                            >
-                                <Wallet size={16} className={accountFilters.personalChk ? 'text-green' : 'text-dim'} />
-                            </button>
-                            <button
-                                onClick={() => setAccountFilters(f => ({ ...f, personalCC: !f.personalCC }))}
-                                className={accountFilters.personalCC ? 'tx-icon tx-icon-green' : 'tx-icon'}
-                                style={{
-                                    width: 42, height: 42, border: 'none', cursor: 'pointer',
-                                    opacity: accountFilters.personalCC ? 1 : 0.5,
-                                    boxShadow: accountFilters.personalCC ? '0 0 0 2px var(--accent-green)' : 'none'
-                                }}
-                            >
-                                <span style={{ fontSize: 12, fontWeight: 700 }} className={accountFilters.personalCC ? 'text-green' : 'text-dim'}>CC</span>
-                            </button>
-                            <button
-                                onClick={() => setAccountFilters(f => ({ ...f, bizChk: !f.bizChk }))}
-                                className={accountFilters.bizChk ? 'tx-icon tx-icon-blue' : 'tx-icon'}
-                                style={{
-                                    width: 42, height: 42, border: 'none', cursor: 'pointer',
-                                    opacity: accountFilters.bizChk ? 1 : 0.5,
-                                    boxShadow: accountFilters.bizChk ? '0 0 0 2px var(--accent-blue)' : 'none'
-                                }}
-                            >
-                                <Building2 size={16} className={accountFilters.bizChk ? 'text-blue' : 'text-dim'} />
-                            </button>
-                            <button
-                                onClick={() => setAccountFilters(f => ({ ...f, bizCC: !f.bizCC }))}
-                                className={accountFilters.bizCC ? 'tx-icon tx-icon-blue' : 'tx-icon'}
-                                style={{
-                                    width: 42, height: 42, border: 'none', cursor: 'pointer',
-                                    opacity: accountFilters.bizCC ? 1 : 0.5,
-                                    boxShadow: accountFilters.bizCC ? '0 0 0 2px var(--accent-blue)' : 'none'
-                                }}
-                            >
-                                <span style={{ fontSize: 12, fontWeight: 700 }} className={accountFilters.bizCC ? 'text-blue' : 'text-dim'}>CC</span>
-                            </button>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 16 }}>
+                            {/* Personal Group */}
+                            <div>
+                                <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-dim)', textTransform: 'uppercase', marginBottom: 6, paddingLeft: 4 }}>Personal</div>
+                                <div style={{ display: 'flex', gap: 8 }}>
+                                    <button
+                                        onClick={() => setAccountFilters(f => ({ ...f, personalChk: !f.personalChk }))}
+                                        className={accountFilters.personalChk ? 'tx-icon tx-icon-green' : 'tx-icon'}
+                                        style={{
+                                            flex: 1, height: 42, border: 'none', cursor: 'pointer',
+                                            opacity: accountFilters.personalChk ? 1 : 0.8,
+                                            boxShadow: accountFilters.personalChk ? '0 0 0 2px var(--accent-green)' : 'none',
+                                            background: accountFilters.personalChk ? 'var(--bg-card-elevated)' : 'var(--bg-card)'
+                                        }}
+                                    >
+                                        <Wallet size={16} className={accountFilters.personalChk ? 'text-green' : 'text-secondary'} style={{ opacity: accountFilters.personalChk ? 1 : 0.6 }} />
+                                    </button>
+                                    <button
+                                        onClick={() => setAccountFilters(f => ({ ...f, personalCC: !f.personalCC }))}
+                                        className={accountFilters.personalCC ? 'tx-icon tx-icon-green' : 'tx-icon'}
+                                        style={{
+                                            flex: 1, height: 42, border: 'none', cursor: 'pointer',
+                                            opacity: accountFilters.personalCC ? 1 : 0.8,
+                                            boxShadow: accountFilters.personalCC ? '0 0 0 2px var(--accent-green)' : 'none',
+                                            background: accountFilters.personalCC ? 'var(--bg-card-elevated)' : 'var(--bg-card)'
+                                        }}
+                                    >
+                                        <span style={{ fontSize: 12, fontWeight: 700, opacity: accountFilters.personalCC ? 1 : 0.6 }} className={accountFilters.personalCC ? 'text-green' : 'text-secondary'}>CC</span>
+                                    </button>
+                                </div>
+                            </div>
+
+                            {/* Business Group */}
+                            <div>
+                                <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-dim)', textTransform: 'uppercase', marginBottom: 6, paddingLeft: 4 }}>Business</div>
+                                <div style={{ display: 'flex', gap: 8 }}>
+                                    <button
+                                        onClick={() => setAccountFilters(f => ({ ...f, bizChk: !f.bizChk }))}
+                                        className={accountFilters.bizChk ? 'tx-icon tx-icon-blue' : 'tx-icon'}
+                                        style={{
+                                            flex: 1, height: 42, border: 'none', cursor: 'pointer',
+                                            opacity: accountFilters.bizChk ? 1 : 0.8,
+                                            boxShadow: accountFilters.bizChk ? '0 0 0 2px var(--accent-blue)' : 'none',
+                                            background: accountFilters.bizChk ? 'var(--bg-card-elevated)' : 'var(--bg-card)'
+                                        }}
+                                    >
+                                        <Building2 size={16} className={accountFilters.bizChk ? 'text-blue' : 'text-secondary'} style={{ opacity: accountFilters.bizChk ? 1 : 0.6 }} />
+                                    </button>
+                                    <button
+                                        onClick={() => setAccountFilters(f => ({ ...f, bizCC: !f.bizCC }))}
+                                        className={accountFilters.bizCC ? 'tx-icon tx-icon-blue' : 'tx-icon'}
+                                        style={{
+                                            flex: 1, height: 42, border: 'none', cursor: 'pointer',
+                                            opacity: accountFilters.bizCC ? 1 : 0.8,
+                                            boxShadow: accountFilters.bizCC ? '0 0 0 2px var(--accent-blue)' : 'none',
+                                            background: accountFilters.bizCC ? 'var(--bg-card-elevated)' : 'var(--bg-card)'
+                                        }}
+                                    >
+                                        <span style={{ fontSize: 12, fontWeight: 700, opacity: accountFilters.bizCC ? 1 : 0.6 }} className={accountFilters.bizCC ? 'text-blue' : 'text-secondary'}>CC</span>
+                                    </button>
+                                </div>
+                            </div>
                         </div>
 
                         <div className="card">
@@ -790,6 +809,34 @@ export default function App() {
                             </div>
                         </div>
                     </>
+                ) : page === 'notes' ? (
+                    /* Notes Page */
+                    <>
+                        <div className="mb-3">
+                            <h1 style={{ fontSize: 18, fontWeight: 700, marginBottom: 4 }}>Notes</h1>
+                            <p className="text-secondary" style={{ fontSize: 11 }}>Log thoughts, ideas, or reminders</p>
+                        </div>
+                        <div className="card" style={{ padding: 0, overflow: 'hidden', minHeight: '60vh' }}>
+                            <textarea
+                                value={data.notes}
+                                onChange={(e) => updateField('notes', e.target.value)}
+                                placeholder="Start typing..."
+                                style={{
+                                    width: '100%',
+                                    height: '60vh',
+                                    background: 'transparent',
+                                    border: 'none',
+                                    color: 'var(--text-primary)',
+                                    fontSize: 16,
+                                    lineHeight: 1.6,
+                                    padding: 20,
+                                    resize: 'none',
+                                    outline: 'none',
+                                    fontFamily: 'inherit'
+                                }}
+                            />
+                        </div>
+                    </>
                 ) : (
                     /* Strategy Page */
                     <>
@@ -880,6 +927,10 @@ export default function App() {
                 <button className={`nav-item ${page === 'transactions' ? 'active' : ''}`} onClick={() => setPage('transactions')}>
                     <Receipt size={16} />
                     <span>Activity</span>
+                </button>
+                <button className={`nav-item ${page === 'notes' ? 'active' : ''}`} onClick={() => setPage('notes')}>
+                    <StickyNote size={16} />
+                    <span>Notes</span>
                 </button>
                 <button className={`nav-item ${page === 'strategy' ? 'active' : ''}`} onClick={() => setPage('strategy')}>
                     <Target size={16} />
