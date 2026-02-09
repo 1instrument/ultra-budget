@@ -293,7 +293,7 @@ export default function App() {
         });
     };
 
-    const updateField = (f, v) => setData(p => ({ ...p, [f]: Number(v) || 0 }));
+    const updateField = (f, v) => setData(p => ({ ...p, [f]: v }));
 
     const toggleGroup = (id) => setData(p => ({ ...p, groups: p.groups.map(g => g.id === id ? { ...g, collapsed: !g.collapsed } : g) }));
     const addItem = (gid) => setData(p => ({ ...p, groups: p.groups.map(g => g.id === gid ? { ...g, items: [...g.items, { id: Date.now().toString(), name: 'New Item', amount: 0 }] } : g) }));
@@ -475,7 +475,7 @@ export default function App() {
                             <span className="card-title">Salary Draw</span>
                             <div className="flex items-center gap-2 mt-2">
                                 <span className="text-dim" style={{ fontSize: 24, fontWeight: 700 }}>$</span>
-                                <input type="number" className="input-inline stat-medium" style={{ fontSize: 24, fontWeight: 700, flex: 1 }} value={data.salary} onChange={(e) => updateField('salary', e.target.value)} />
+                                <input type="number" className="input-inline stat-medium" style={{ fontSize: 24, fontWeight: 700, flex: 1 }} value={data.salary} onChange={(e) => updateField('salary', Number(e.target.value) || 0)} />
                             </div>
 
                             <div className="progress-container mt-3" style={{ height: 6, background: 'var(--bg-input)' }}>
