@@ -4,7 +4,7 @@ import {
     Lightbulb, Wallet, Building2, Sparkles, LayoutDashboard, Receipt,
     Coffee, ShoppingBag, Zap, Car, Home, CreditCard, Target, CalendarCheck,
     Users, Clock, CheckCircle2, DollarSign, Filter, ShieldCheck, Moon,
-    FileText, StickyNote
+    FileText, StickyNote, User
 } from 'lucide-react';
 
 
@@ -71,6 +71,7 @@ function getDailyPrompt() {
     return { icon: ShieldCheck, text: "Budget Check: Your allocations are all set." };
 }
 
+
 function Auth({ onComplete }) {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
@@ -92,7 +93,8 @@ function Auth({ onComplete }) {
             if (isSignup) alert('Check your email for the confirmation link!');
             onComplete();
         } catch (err) {
-            setError(err.message);
+            console.error('Auth error:', err);
+            setError(err.message || 'An unexpected error occurred during authentication.');
         } finally {
             setLoading(false);
         }
@@ -110,7 +112,7 @@ function Auth({ onComplete }) {
                     <label style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-dim)' }}>EMAIL</label>
                     <input
                         type="email"
-                        className="lock-input"
+                        className="lock-input auth-input"
                         style={{ background: 'var(--bg-card)', border: '1px solid var(--bg-input)', fontSize: 14, width: '100%', borderRadius: 12 }}
                         value={email}
                         onChange={e => setEmail(e.target.value)}
@@ -121,7 +123,7 @@ function Auth({ onComplete }) {
                     <label style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-dim)' }}>PASSWORD</label>
                     <input
                         type="password"
-                        className="lock-input"
+                        className="lock-input auth-input"
                         style={{ background: 'var(--bg-card)', border: '1px solid var(--bg-input)', fontSize: 14, width: '100%', borderRadius: 12 }}
                         value={password}
                         onChange={e => setPassword(e.target.value)}
@@ -213,6 +215,22 @@ function ProfilePage({ session }) {
 }
 
 
+const migrateData = (incoming) => {
+    if (!incoming) return INITIAL_STATE;
+    return {
+        ...INITIAL_STATE,
+        ...incoming,
+        personalBalance: incoming.personalBalance ?? INITIAL_STATE.personalBalance,
+        bizBalance: incoming.bizBalance ?? INITIAL_STATE.bizBalance,
+        groups: incoming.groups || INITIAL_STATE.groups,
+        goals: incoming.goals || INITIAL_STATE.goals,
+        flaggedIds: incoming.flaggedIds || INITIAL_STATE.flaggedIds,
+        streak: incoming.streak ?? INITIAL_STATE.streak,
+        lastCheckIn: incoming.lastCheckIn || INITIAL_STATE.lastCheckIn,
+        notes: incoming.notes ?? INITIAL_STATE.notes
+    };
+};
+
 export default function App() {
 
     const [page, setPage] = useState('home');
@@ -235,20 +253,13 @@ export default function App() {
     const [session, setSession] = useState(null);
     const [syncStatus, setSyncStatus] = useState('idle'); // idle, syncing, success, error
     const [data, setData] = useState(() => {
-        const saved = localStorage.getItem('ultra_budget_v4');
-        if (saved) {
-            const parsed = JSON.parse(saved);
-            // Migrations / Defaults for new features
-            if (!parsed.personalBalance) parsed.personalBalance = 5200;
-            if (!parsed.bizBalance) parsed.bizBalance = 28500;
-            if (!parsed.goals) parsed.goals = INITIAL_STATE.goals;
-            if (parsed.streak === undefined) parsed.streak = 0;
-            if (!parsed.lastCheckIn) parsed.lastCheckIn = '';
-            if (parsed.notes === undefined) parsed.notes = '';
-            if (!parsed.flaggedIds) parsed.flaggedIds = [];
-            return parsed;
+        try {
+            const saved = localStorage.getItem('ultra_budget_v4');
+            return migrateData(saved ? JSON.parse(saved) : null);
+        } catch (e) {
+            console.error('Failed to parse saved data:', e);
+            return migrateData(null);
         }
-        return INITIAL_STATE;
     });
 
     useEffect(() => {
@@ -323,8 +334,8 @@ export default function App() {
                     .eq('id', session.user.id)
                     .single();
 
-                if (cloudState && !error) {
-                    setData(cloudState.data);
+                if (cloudState && !error && cloudState.data) {
+                    setData(migrateData(cloudState.data));
                 }
             };
             pullData();
@@ -332,7 +343,7 @@ export default function App() {
     }, [session]);
 
     // progress/totals calculations
-    const totalPersonal = useMemo(() => data.groups.reduce((a, g) => a + g.items.reduce((s, i) => s + i.amount, 0), 0), [data.groups]);
+    const totalPersonal = useMemo(() => (data?.groups || []).reduce((a, g) => a + (g?.items || []).reduce((s, i) => s + i.amount, 0), 0), [data?.groups]);
 
     const dailyPrompt = getDailyPrompt();
 

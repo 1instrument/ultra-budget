@@ -975,6 +975,11 @@ input[type=number] {
   transition: border-color 0.2s;
 }
 
+.auth-input {
+  letter-spacing: normal !important;
+  text-align: left !important;
+}
+
 .lock-input:focus {
   outline: none;
   border-color: var(--accent-primary);
