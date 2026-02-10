@@ -241,6 +241,21 @@ function ShareModal({ isOpen, text, onClose }) {
         setTimeout(() => setCopied(false), 2000);
     };
 
+    const handleShare = async () => {
+        if (navigator.share) {
+            try {
+                await navigator.share({
+                    title: 'Transaction Summary',
+                    text: text,
+                });
+            } catch (err) {
+                console.error('Error sharing:', err);
+            }
+        } else {
+            alert('Your browser does not support native sharing.');
+        }
+    };
+
     return (
         <div className="modal-overlay" style={{ zIndex: 2000 }}>
             <div className="modal-content" style={{ width: '90%', maxWidth: 320 }}>
@@ -267,10 +282,13 @@ function ShareModal({ isOpen, text, onClose }) {
                         }}
                     />
                 </div>
-                <div className="modal-actions">
-                    <button className="btn-modal btn-confirm" onClick={handleCopy} style={{ width: '100%', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 8 }}>
+                <div className="modal-actions" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                    <button className="btn-modal" onClick={handleShare} style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 6, background: 'var(--accent-blue)', color: 'white', border: 'none' }}>
+                        <Share size={16} /> Share
+                    </button>
+                    <button className="btn-modal btn-confirm" onClick={handleCopy} style={{ width: '100%', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 6, background: copied ? 'var(--accent-green)' : 'var(--bg-card-elevated)', border: copied ? 'none' : '1px solid rgba(255,255,255,0.1)' }}>
                         {copied ? <CheckCircle2 size={16} /> : <Copy size={16} />}
-                        {copied ? 'Copied!' : 'Copy to Clipboard'}
+                        {copied ? 'Copied' : 'Copy'}
                     </button>
                 </div>
             </div>
@@ -995,19 +1013,6 @@ export default function App() {
                                         <div key={tx.id} className="tx-item" style={{ flexDirection: 'column', alignItems: 'stretch' }}>
                                             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                                                 <div style={{ display: 'flex', alignItems: 'center' }}>
-                                                    <button
-                                                        onClick={(e) => { e.stopPropagation(); toggleFlag(tx.id); }}
-                                                        style={{
-                                                            background: 'none', border: 'none', padding: '4px 8px',
-                                                            marginLeft: -8, cursor: 'pointer', transition: 'transform 0.2s'
-                                                        }}
-                                                    >
-                                                        <FileText
-                                                            size={14}
-                                                            className={data.flaggedIds.includes(tx.id) ? 'text-amber' : 'text-dim'}
-                                                            style={{ opacity: data.flaggedIds.includes(tx.id) ? 1 : 0.3 }}
-                                                        />
-                                                    </button>
                                                     <div className={`tx-icon ${tx.colorClass === 'text-blue' ? 'tx-icon-blue' : 'tx-icon-green'}`}>
                                                         {tx.isCC ? (
                                                             <span className={tx.colorClass} style={{ fontSize: 12, fontWeight: 700 }}>CC</span>
@@ -1020,8 +1025,24 @@ export default function App() {
                                                         <div className="tx-meta">{tx.category} • {tx.date}</div>
                                                     </div>
                                                 </div>
-                                                <div className={`tx-amount ${tx.amount > 0 ? 'income' : 'expense'}`}>
-                                                    {tx.amount > 0 ? '+' : ''}{fmt(tx.amount)}
+                                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 16 }}>
+                                                    <button
+                                                        onClick={(e) => { e.stopPropagation(); toggleFlag(tx.id); }}
+                                                        style={{
+                                                            background: 'none', border: 'none', padding: 4,
+                                                            cursor: 'pointer', display: 'flex', alignItems: 'center',
+                                                            opacity: data.flaggedIds.includes(tx.id) ? 1 : 0.2, // Subtle when unselected
+                                                            transition: 'opacity 0.2s'
+                                                        }}
+                                                    >
+                                                        <FileText
+                                                            size={16}
+                                                            className={data.flaggedIds.includes(tx.id) ? 'text-amber' : 'text-dim'}
+                                                        />
+                                                    </button>
+                                                    <div className={`tx-amount ${tx.amount > 0 ? 'income' : 'expense'}`}>
+                                                        {tx.amount > 0 ? '+' : ''}{fmt(tx.amount)}
+                                                    </div>
                                                 </div>
                                             </div>
                                             {/* Debug Output */}
