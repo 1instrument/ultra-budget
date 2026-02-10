@@ -1025,24 +1025,25 @@ export default function App() {
                                                         <div className="tx-meta">{tx.category} • {tx.date}</div>
                                                     </div>
                                                 </div>
-                                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 16 }}>
+                                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 12 }}>
+                                                    <div className={`tx-amount ${tx.amount > 0 ? 'income' : 'expense'}`}>
+                                                        {tx.amount > 0 ? '+' : ''}{fmt(tx.amount)}
+                                                    </div>
                                                     <button
                                                         onClick={(e) => { e.stopPropagation(); toggleFlag(tx.id); }}
                                                         style={{
-                                                            background: 'none', border: 'none', padding: 4,
+                                                            background: 'none', border: 'none', padding: 8,
+                                                            marginRight: -8, // Pull it slightly to the edge
                                                             cursor: 'pointer', display: 'flex', alignItems: 'center',
-                                                            opacity: data.flaggedIds.includes(tx.id) ? 1 : 0.2, // Subtle when unselected
+                                                            opacity: data.flaggedIds.includes(tx.id) ? 1 : 0.15, // Subtle when unselected
                                                             transition: 'opacity 0.2s'
                                                         }}
                                                     >
                                                         <FileText
-                                                            size={16}
+                                                            size={18}
                                                             className={data.flaggedIds.includes(tx.id) ? 'text-amber' : 'text-dim'}
                                                         />
                                                     </button>
-                                                    <div className={`tx-amount ${tx.amount > 0 ? 'income' : 'expense'}`}>
-                                                        {tx.amount > 0 ? '+' : ''}{fmt(tx.amount)}
-                                                    </div>
                                                 </div>
                                             </div>
                                             {/* Debug Output */}
