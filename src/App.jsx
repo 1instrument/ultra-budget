@@ -4,7 +4,7 @@ import {
     Lightbulb, Wallet, Building2, Sparkles, LayoutDashboard, Receipt,
     Coffee, ShoppingBag, Zap, Car, Home, CreditCard, Target, CalendarCheck,
     Users, Clock, CheckCircle2, DollarSign, Filter, ShieldCheck, Moon,
-    FileText, StickyNote, User
+    FileText, StickyNote, User, Share, Copy, X
 } from 'lucide-react';
 
 
@@ -231,6 +231,53 @@ const migrateData = (incoming) => {
     };
 };
 
+function ShareModal({ isOpen, text, onClose }) {
+    if (!isOpen) return null;
+    const [copied, setCopied] = useState(false);
+
+    const handleCopy = () => {
+        navigator.clipboard.writeText(text);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+    };
+
+    return (
+        <div className="modal-overlay" style={{ zIndex: 2000 }}>
+            <div className="modal-content" style={{ width: '90%', maxWidth: 320 }}>
+                <div className="modal-title" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span>Share Transactions</span>
+                    <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer' }}><X size={18} /></button>
+                </div>
+                <div className="modal-text" style={{ padding: 0 }}>
+                    <textarea
+                        readOnly
+                        value={text}
+                        style={{
+                            width: '100%',
+                            height: 150,
+                            background: 'var(--bg-input)',
+                            border: '1px solid rgba(255,255,255,0.1)',
+                            borderRadius: 8,
+                            color: 'var(--text-primary)',
+                            padding: 12,
+                            fontSize: 14,
+                            fontFamily: 'monospace',
+                            marginBottom: 16,
+                            resize: 'none'
+                        }}
+                    />
+                </div>
+                <div className="modal-actions">
+                    <button className="btn-modal btn-confirm" onClick={handleCopy} style={{ width: '100%', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 8 }}>
+                        {copied ? <CheckCircle2 size={16} /> : <Copy size={16} />}
+                        {copied ? 'Copied!' : 'Copy to Clipboard'}
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+}
+
 export default function App() {
 
     const [page, setPage] = useState('home');
@@ -249,6 +296,7 @@ export default function App() {
 
     // Modal State - MUST be before any conditional returns (React hooks rule)
     const [confirmModal, setConfirmModal] = useState({ isOpen: false, message: '', onConfirm: null });
+    const [shareModal, setShareModal] = useState({ isOpen: false, text: '' });
     const [authModalOpen, setAuthModalOpen] = useState(false);
     const [session, setSession] = useState(null);
     const [syncStatus, setSyncStatus] = useState('idle'); // idle, syncing, success, error
@@ -539,6 +587,26 @@ export default function App() {
         }
     });
 
+    const handleShare = () => {
+        const flaggedTxs = transactions.filter(t => data.flaggedIds.includes(t.id));
+        if (flaggedTxs.length === 0) return;
+
+        // Sort by date ascending (oldest to newest) for the list
+        const sortedTxs = [...flaggedTxs].sort((a, b) => new Date(a.date) - new Date(b.date));
+
+        let text = sortedTxs.map(t => {
+            // Format date as M/D
+            const dateParts = t.date.split('-'); // YYYY-MM-DD
+            const dateStr = `${parseInt(dateParts[1])}/${parseInt(dateParts[2])}`;
+            return `${dateStr} ${t.name}: $${Math.abs(t.amount).toFixed(2)}`;
+        }).join('\n');
+
+        const total = sortedTxs.reduce((sum, t) => sum + Math.abs(t.amount), 0);
+        text += `\n\nTotal: $${total.toFixed(2)}`;
+
+        setShareModal({ isOpen: true, text });
+    };
+
     // Gate the app behind Supabase Auth
     if (!session) {
         return (
@@ -562,6 +630,11 @@ export default function App() {
                 message={confirmModal.message}
                 onConfirm={confirmModal.onConfirm}
                 onCancel={() => setConfirmModal({ isOpen: false, message: '', onConfirm: null })}
+            />
+            <ShareModal
+                isOpen={shareModal.isOpen}
+                text={shareModal.text}
+                onClose={() => setShareModal({ isOpen: false, text: '' })}
             />
             <div className="app-container" {...swipeHandlers}>
                 {page === 'home' ? (
@@ -739,6 +812,27 @@ export default function App() {
                         <div className="flex items-center justify-between mb-3">
                             <h1 style={{ fontSize: 18, fontWeight: 700 }}>Transactions</h1>
                             <div style={{ display: 'flex', gap: 8 }}>
+                                {data.flaggedIds.length > 0 && (
+                                    <button
+                                        onClick={handleShare}
+                                        style={{
+                                            padding: '6px 10px',
+                                            fontSize: 11,
+                                            fontWeight: 600,
+                                            background: 'var(--accent-amber)',
+                                            color: '#000',
+                                            border: 'none',
+                                            borderRadius: 8,
+                                            cursor: 'pointer',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: 6
+                                        }}
+                                    >
+                                        <Share size={12} />
+                                        Share {data.flaggedIds.length}
+                                    </button>
+                                )}
                                 <button
                                     onClick={() => setDebugMode(d => !d)}
                                     style={{
