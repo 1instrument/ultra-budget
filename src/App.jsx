@@ -588,6 +588,13 @@ export default function App() {
         }
     };
 
+    // Auto-sync when entering transactions page
+    useEffect(() => {
+        if (page === 'transactions') {
+            syncLunchMoneyData();
+        }
+    }, [page]);
+
 
     // Swipe Navigation Logic
     const swipeHandlers = useSwipe({
