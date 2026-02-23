@@ -902,25 +902,45 @@ export default function App() {
                             <h1 style={{ fontSize: 18, fontWeight: 700 }}>Transactions</h1>
                             <div style={{ display: 'flex', gap: 8 }}>
                                 {data.flaggedIds.length > 0 && (
-                                    <button
-                                        onClick={handleShare}
-                                        style={{
-                                            padding: '6px 10px',
-                                            fontSize: 11,
-                                            fontWeight: 600,
-                                            background: 'var(--accent-amber)',
-                                            color: '#000',
-                                            border: 'none',
-                                            borderRadius: 8,
-                                            cursor: 'pointer',
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            gap: 6
-                                        }}
-                                    >
-                                        <Share size={12} />
-                                        Share {data.flaggedIds.length}
-                                    </button>
+                                    <>
+                                        <button
+                                            onClick={() => setData(p => ({ ...p, flaggedIds: [] }))}
+                                            style={{
+                                                padding: '6px 10px',
+                                                fontSize: 11,
+                                                fontWeight: 600,
+                                                background: 'var(--bg-card-elevated)',
+                                                color: 'var(--text-secondary)',
+                                                border: '1px solid rgba(255,255,255,0.1)',
+                                                borderRadius: 8,
+                                                cursor: 'pointer',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                gap: 4
+                                            }}
+                                        >
+                                            <X size={12} /> Clear
+                                        </button>
+                                        <button
+                                            onClick={handleShare}
+                                            style={{
+                                                padding: '6px 10px',
+                                                fontSize: 11,
+                                                fontWeight: 600,
+                                                background: 'var(--accent-amber)',
+                                                color: '#000',
+                                                border: 'none',
+                                                borderRadius: 8,
+                                                cursor: 'pointer',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                gap: 6
+                                            }}
+                                        >
+                                            <Share size={12} />
+                                            {data.flaggedIds.length}
+                                        </button>
+                                    </>
                                 )}
                                 <button
                                     onClick={() => setDebugMode(d => !d)}
@@ -945,83 +965,144 @@ export default function App() {
                         </div>
 
                         {/* Filter Bar */}
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 0.5fr', gap: 12, marginBottom: 16 }}>
-                            {/* Personal Group */}
-                            <div>
-                                <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-dim)', textTransform: 'uppercase', marginBottom: 6, paddingLeft: 4 }}>Personal</div>
-                                <div style={{ display: 'flex', gap: 8 }}>
-                                    <button
-                                        onClick={() => setAccountFilters(f => ({ ...f, personalChk: !f.personalChk }))}
-                                        className={accountFilters.personalChk ? 'tx-icon tx-icon-green' : 'tx-icon'}
-                                        style={{
-                                            flex: 1, height: 42, border: 'none', cursor: 'pointer',
-                                            opacity: accountFilters.personalChk ? 1 : 0.8,
-                                            boxShadow: accountFilters.personalChk ? '0 0 0 2px var(--accent-green)' : 'none',
-                                            background: accountFilters.personalChk ? 'var(--bg-card-elevated)' : 'var(--bg-card)'
-                                        }}
-                                    >
-                                        <Wallet size={16} className={accountFilters.personalChk ? 'text-green' : 'text-secondary'} style={{ opacity: accountFilters.personalChk ? 1 : 0.6 }} />
-                                    </button>
-                                    <button
-                                        onClick={() => setAccountFilters(f => ({ ...f, personalCC: !f.personalCC }))}
-                                        className={accountFilters.personalCC ? 'tx-icon tx-icon-green' : 'tx-icon'}
-                                        style={{
-                                            flex: 1, height: 42, border: 'none', cursor: 'pointer',
-                                            opacity: accountFilters.personalCC ? 1 : 0.8,
-                                            boxShadow: accountFilters.personalCC ? '0 0 0 2px var(--accent-green)' : 'none',
-                                            background: accountFilters.personalCC ? 'var(--bg-card-elevated)' : 'var(--bg-card)'
-                                        }}
-                                    >
-                                        <span style={{ fontSize: 12, fontWeight: 700, opacity: accountFilters.personalCC ? 1 : 0.6 }} className={accountFilters.personalCC ? 'text-green' : 'text-secondary'}>CC</span>
-                                    </button>
-                                </div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 16, overflowX: 'auto', paddingBottom: 4, scrollbarWidth: 'none' }}>
+                            {/* Acct Chk */}
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                                <div style={{ fontSize: 9, fontWeight: 700, color: 'var(--text-dim)', textTransform: 'uppercase', paddingLeft: 4 }}>Acct</div>
+                                <button
+                                    onClick={() => setAccountFilters(f => ({ ...f, personalChk: !f.personalChk }))}
+                                    className={accountFilters.personalChk ? 'tx-icon tx-icon-green' : 'tx-icon'}
+                                    style={{
+                                        width: 36, height: 36, border: 'none', cursor: 'pointer', borderRadius: 8,
+                                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                        opacity: accountFilters.personalChk ? 1 : 0.8,
+                                        boxShadow: accountFilters.personalChk ? '0 0 0 1px var(--accent-green)' : 'none',
+                                        background: accountFilters.personalChk ? 'var(--bg-card-elevated)' : 'var(--bg-card)'
+                                    }}
+                                >
+                                    <Wallet size={14} className={accountFilters.personalChk ? 'text-green' : 'text-secondary'} style={{ opacity: accountFilters.personalChk ? 1 : 0.6 }} />
+                                </button>
                             </div>
 
-                            {/* Business Group */}
-                            <div>
-                                <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-dim)', textTransform: 'uppercase', marginBottom: 6, paddingLeft: 4 }}>Business</div>
-                                <div style={{ display: 'flex', gap: 8 }}>
-                                    <button
-                                        onClick={() => setAccountFilters(f => ({ ...f, bizChk: !f.bizChk }))}
-                                        className={accountFilters.bizChk ? 'tx-icon tx-icon-blue' : 'tx-icon'}
-                                        style={{
-                                            flex: 1, height: 42, border: 'none', cursor: 'pointer',
-                                            opacity: accountFilters.bizChk ? 1 : 0.8,
-                                            boxShadow: accountFilters.bizChk ? '0 0 0 2px var(--accent-blue)' : 'none',
-                                            background: accountFilters.bizChk ? 'var(--bg-card-elevated)' : 'var(--bg-card)'
-                                        }}
-                                    >
-                                        <Building2 size={16} className={accountFilters.bizChk ? 'text-blue' : 'text-secondary'} style={{ opacity: accountFilters.bizChk ? 1 : 0.6 }} />
-                                    </button>
-                                    <button
-                                        onClick={() => setAccountFilters(f => ({ ...f, bizCC: !f.bizCC }))}
-                                        className={accountFilters.bizCC ? 'tx-icon tx-icon-blue' : 'tx-icon'}
-                                        style={{
-                                            flex: 1, height: 42, border: 'none', cursor: 'pointer',
-                                            opacity: accountFilters.bizCC ? 1 : 0.8,
-                                            boxShadow: accountFilters.bizCC ? '0 0 0 2px var(--accent-blue)' : 'none',
-                                            background: accountFilters.bizCC ? 'var(--bg-card-elevated)' : 'var(--bg-card)'
-                                        }}
-                                    >
-                                        <span style={{ fontSize: 12, fontWeight: 700, opacity: accountFilters.bizCC ? 1 : 0.6 }} className={accountFilters.bizCC ? 'text-blue' : 'text-secondary'}>CC</span>
-                                    </button>
-                                </div>
+                            {/* Acct CC */}
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                                <div style={{ fontSize: 9, fontWeight: 700, color: 'transparent', textTransform: 'uppercase', userSelect: 'none' }}>_</div>
+                                <button
+                                    onClick={() => setAccountFilters(f => ({ ...f, personalCC: !f.personalCC }))}
+                                    className={accountFilters.personalCC ? 'tx-icon tx-icon-green' : 'tx-icon'}
+                                    style={{
+                                        width: 36, height: 36, border: 'none', cursor: 'pointer', borderRadius: 8,
+                                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                        opacity: accountFilters.personalCC ? 1 : 0.8,
+                                        boxShadow: accountFilters.personalCC ? '0 0 0 1px var(--accent-green)' : 'none',
+                                        background: accountFilters.personalCC ? 'var(--bg-card-elevated)' : 'var(--bg-card)'
+                                    }}
+                                >
+                                    <span style={{ fontSize: 10, fontWeight: 700, opacity: accountFilters.personalCC ? 1 : 0.6 }} className={accountFilters.personalCC ? 'text-green' : 'text-secondary'}>CC</span>
+                                </button>
                             </div>
 
-                            {/* Flagged Group */}
-                            <div>
-                                <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-dim)', textTransform: 'uppercase', marginBottom: 6, paddingLeft: 4 }}>Review</div>
+                            {/* Biz Chk */}
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                                <div style={{ fontSize: 9, fontWeight: 700, color: 'var(--text-dim)', textTransform: 'uppercase', paddingLeft: 4 }}>Biz</div>
+                                <button
+                                    onClick={() => setAccountFilters(f => ({ ...f, bizChk: !f.bizChk }))}
+                                    className={accountFilters.bizChk ? 'tx-icon tx-icon-blue' : 'tx-icon'}
+                                    style={{
+                                        width: 36, height: 36, border: 'none', cursor: 'pointer', borderRadius: 8,
+                                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                        opacity: accountFilters.bizChk ? 1 : 0.8,
+                                        boxShadow: accountFilters.bizChk ? '0 0 0 1px var(--accent-blue)' : 'none',
+                                        background: accountFilters.bizChk ? 'var(--bg-card-elevated)' : 'var(--bg-card)'
+                                    }}
+                                >
+                                    <Building2 size={14} className={accountFilters.bizChk ? 'text-blue' : 'text-secondary'} style={{ opacity: accountFilters.bizChk ? 1 : 0.6 }} />
+                                </button>
+                            </div>
+
+                            {/* Biz CC */}
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                                <div style={{ fontSize: 9, fontWeight: 700, color: 'transparent', textTransform: 'uppercase', userSelect: 'none' }}>_</div>
+                                <button
+                                    onClick={() => setAccountFilters(f => ({ ...f, bizCC: !f.bizCC }))}
+                                    className={accountFilters.bizCC ? 'tx-icon tx-icon-blue' : 'tx-icon'}
+                                    style={{
+                                        width: 36, height: 36, border: 'none', cursor: 'pointer', borderRadius: 8,
+                                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                        opacity: accountFilters.bizCC ? 1 : 0.8,
+                                        boxShadow: accountFilters.bizCC ? '0 0 0 1px var(--accent-blue)' : 'none',
+                                        background: accountFilters.bizCC ? 'var(--bg-card-elevated)' : 'var(--bg-card)'
+                                    }}
+                                >
+                                    <span style={{ fontSize: 10, fontWeight: 700, opacity: accountFilters.bizCC ? 1 : 0.6 }} className={accountFilters.bizCC ? 'text-blue' : 'text-secondary'}>CC</span>
+                                </button>
+                            </div>
+
+                            {/* Budget Variable */}
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                                <div style={{ fontSize: 9, fontWeight: 700, color: 'var(--text-dim)', textTransform: 'uppercase', paddingLeft: 4 }}>Budget</div>
+                                <button
+                                    onClick={() => setAccountFilters(f => ({ ...f, variable: !f.variable }))}
+                                    style={{
+                                        width: 36, height: 36, border: 'none', cursor: 'pointer', borderRadius: 8,
+                                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                        opacity: accountFilters.variable ? 1 : 0.8,
+                                        boxShadow: accountFilters.variable ? '0 0 0 1px #2DD4BF' : 'none',
+                                        background: accountFilters.variable ? '#2DD4BF20' : 'var(--bg-card)'
+                                    }}
+                                >
+                                    <Zap size={14} color={accountFilters.variable ? '#2DD4BF' : 'var(--text-secondary)'} style={{ opacity: accountFilters.variable ? 1 : 0.6 }} />
+                                </button>
+                            </div>
+
+                            {/* Budget Fixed */}
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                                <div style={{ fontSize: 9, fontWeight: 700, color: 'transparent', textTransform: 'uppercase', userSelect: 'none' }}>_</div>
+                                <button
+                                    onClick={() => setAccountFilters(f => ({ ...f, fixed: !f.fixed }))}
+                                    style={{
+                                        width: 36, height: 36, border: 'none', cursor: 'pointer', borderRadius: 8,
+                                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                        opacity: accountFilters.fixed ? 1 : 0.8,
+                                        boxShadow: accountFilters.fixed ? '0 0 0 1px #5B7FFF' : 'none',
+                                        background: accountFilters.fixed ? '#5B7FFF20' : 'var(--bg-card)'
+                                    }}
+                                >
+                                    <Home size={14} color={accountFilters.fixed ? '#5B7FFF' : 'var(--text-secondary)'} style={{ opacity: accountFilters.fixed ? 1 : 0.6 }} />
+                                </button>
+                            </div>
+
+                            {/* Budget Wealth */}
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                                <div style={{ fontSize: 9, fontWeight: 700, color: 'transparent', textTransform: 'uppercase', userSelect: 'none' }}>_</div>
+                                <button
+                                    onClick={() => setAccountFilters(f => ({ ...f, wealth: !f.wealth }))}
+                                    style={{
+                                        width: 36, height: 36, border: 'none', cursor: 'pointer', borderRadius: 8,
+                                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                        opacity: accountFilters.wealth ? 1 : 0.8,
+                                        boxShadow: accountFilters.wealth ? '0 0 0 1px #C8FF00' : 'none',
+                                        background: accountFilters.wealth ? '#C8FF0020' : 'var(--bg-card)'
+                                    }}
+                                >
+                                    <TrendingUp size={14} color={accountFilters.wealth ? '#C8FF00' : 'var(--text-secondary)'} style={{ opacity: accountFilters.wealth ? 1 : 0.6 }} />
+                                </button>
+                            </div>
+
+                            {/* Flags */}
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                                <div style={{ fontSize: 9, fontWeight: 700, color: 'var(--text-dim)', textTransform: 'uppercase', paddingLeft: 4 }}>Flags</div>
                                 <button
                                     onClick={() => setAccountFilters(f => ({ ...f, flagged: !f.flagged }))}
                                     style={{
-                                        width: '100%', height: 42, border: 'none', cursor: 'pointer', borderRadius: 12,
+                                        width: 36, height: 36, border: 'none', cursor: 'pointer', borderRadius: 8,
                                         display: 'flex', alignItems: 'center', justifyContent: 'center',
                                         opacity: accountFilters.flagged ? 1 : 0.8,
-                                        boxShadow: accountFilters.flagged ? '0 0 0 2px var(--accent-amber)' : 'none',
+                                        boxShadow: accountFilters.flagged ? '0 0 0 1px var(--accent-amber)' : 'none',
                                         background: accountFilters.flagged ? 'var(--bg-card-elevated)' : 'var(--bg-card)'
                                     }}
                                 >
-                                    <FileText size={16} className={accountFilters.flagged ? 'text-amber' : 'text-secondary'} style={{ opacity: accountFilters.flagged ? 1 : 0.6 }} />
+                                    <FileText size={14} className={accountFilters.flagged ? 'text-amber' : 'text-secondary'} style={{ opacity: accountFilters.flagged ? 1 : 0.6 }} />
                                 </button>
                             </div>
                         </div>
@@ -1042,12 +1123,36 @@ export default function App() {
                                             const acct = (tx.account_name || '').toLowerCase();
                                             const isBiz = acct.includes('business');
                                             const isCC = acct.includes('cc') || acct.includes('credit');
+                                            const isFlagged = data.flaggedIds.includes(tx.id);
 
-                                            if (accountFilters.personalChk && !isBiz && !isCC) return true;
-                                            if (accountFilters.personalCC && !isBiz && isCC) return true;
-                                            if (accountFilters.bizChk && isBiz && !isCC) return true;
-                                            if (accountFilters.bizCC && isBiz && isCC) return true;
-                                            return false;
+                                            const budgetName = tx.mappedGroup ? (tx.mappedGroup.name || '').toLowerCase() : '';
+                                            const isVariable = budgetName.includes('variable');
+                                            const isFixed = budgetName.includes('fixed');
+                                            const isWealth = budgetName.includes('wealth');
+
+                                            // If ONLY budget filters are active, allow matched budgets
+                                            const hasAcctFilters = accountFilters.personalChk || accountFilters.personalCC || accountFilters.bizChk || accountFilters.bizCC;
+                                            const hasBudgetFilters = accountFilters.variable || accountFilters.fixed || accountFilters.wealth;
+
+                                            let acctMatch = !hasAcctFilters;
+                                            if (hasAcctFilters) {
+                                                if (accountFilters.personalChk && !isBiz && !isCC) acctMatch = true;
+                                                if (accountFilters.personalCC && !isBiz && isCC) acctMatch = true;
+                                                if (accountFilters.bizChk && isBiz && !isCC) acctMatch = true;
+                                                if (accountFilters.bizCC && isBiz && isCC) acctMatch = true;
+                                            }
+
+                                            let budgetMatch = !hasBudgetFilters;
+                                            if (hasBudgetFilters) {
+                                                if (accountFilters.variable && isVariable) budgetMatch = true;
+                                                if (accountFilters.fixed && isFixed) budgetMatch = true;
+                                                if (accountFilters.wealth && isWealth) budgetMatch = true;
+                                            }
+
+                                            if (accountFilters.flagged && isFlagged) return true;
+                                            if (accountFilters.flagged && !isFlagged && !hasAcctFilters && !hasBudgetFilters) return false;
+
+                                            return acctMatch && budgetMatch;
                                         });
                                     }
                                     return filtered.length;
@@ -1069,14 +1174,34 @@ export default function App() {
                                             const isCC = acct.includes('cc') || acct.includes('credit');
                                             const isFlagged = data.flaggedIds.includes(tx.id);
 
-                                            if (accountFilters.flagged && isFlagged) return true;
-                                            if (accountFilters.flagged && !isFlagged && !accountFilters.personalChk && !accountFilters.personalCC && !accountFilters.bizChk && !accountFilters.bizCC) return false;
+                                            const budgetName = tx.mappedGroup ? (tx.mappedGroup.name || '').toLowerCase() : '';
+                                            const isVariable = budgetName.includes('variable');
+                                            const isFixed = budgetName.includes('fixed');
+                                            const isWealth = budgetName.includes('wealth');
 
-                                            if (accountFilters.personalChk && !isBiz && !isCC) return true;
-                                            if (accountFilters.personalCC && !isBiz && isCC) return true;
-                                            if (accountFilters.bizChk && isBiz && !isCC) return true;
-                                            if (accountFilters.bizCC && isBiz && isCC) return true;
-                                            return false;
+                                            // If ONLY budget filters are active, allow matched budgets
+                                            const hasAcctFilters = accountFilters.personalChk || accountFilters.personalCC || accountFilters.bizChk || accountFilters.bizCC;
+                                            const hasBudgetFilters = accountFilters.variable || accountFilters.fixed || accountFilters.wealth;
+
+                                            let acctMatch = !hasAcctFilters;
+                                            if (hasAcctFilters) {
+                                                if (accountFilters.personalChk && !isBiz && !isCC) acctMatch = true;
+                                                if (accountFilters.personalCC && !isBiz && isCC) acctMatch = true;
+                                                if (accountFilters.bizChk && isBiz && !isCC) acctMatch = true;
+                                                if (accountFilters.bizCC && isBiz && isCC) acctMatch = true;
+                                            }
+
+                                            let budgetMatch = !hasBudgetFilters;
+                                            if (hasBudgetFilters) {
+                                                if (accountFilters.variable && isVariable) budgetMatch = true;
+                                                if (accountFilters.fixed && isFixed) budgetMatch = true;
+                                                if (accountFilters.wealth && isWealth) budgetMatch = true;
+                                            }
+
+                                            if (accountFilters.flagged && isFlagged) return true;
+                                            if (accountFilters.flagged && !isFlagged && !hasAcctFilters && !hasBudgetFilters) return false;
+
+                                            return acctMatch && budgetMatch;
                                         });
                                     }
 
