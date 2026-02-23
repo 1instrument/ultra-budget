@@ -1093,36 +1093,26 @@ export default function App() {
                                                     </div>
                                                     <div className="tx-details" style={{ display: 'flex', flexDirection: 'column', gap: 4, justifyContent: 'center' }}>
                                                         <div className="tx-name" style={{ lineHeight: 1.1 }}>{tx.name}</div>
-                                                        {tx.tags && tx.tags.length > 0 && (
-                                                            <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-                                                                {tx.tags.map(tag => (
-                                                                    <span key={tag} style={{
-                                                                        fontSize: 10,
-                                                                        padding: '2px 6px',
-                                                                        background: 'var(--bg-input)',
-                                                                        color: 'var(--text-secondary)',
-                                                                        borderRadius: 4,
-                                                                    }}>{tag}</span>
-                                                                ))}
-                                                            </div>
-                                                        )}
-                                                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: (!tx.tags || tx.tags.length === 0) ? 2 : 0 }}>
-                                                            <div className="tx-meta">{tx.category} • {tx.date}</div>
-                                                            {tx.mappedGroup && (
-                                                                <div style={{
+                                                        {tx.mappedGroup && (
+                                                            <div style={{ display: 'flex' }}>
+                                                                <span style={{
                                                                     fontSize: 9,
                                                                     fontWeight: 700,
-                                                                    padding: '1px 6px',
+                                                                    padding: '2px 6px',
                                                                     borderRadius: 10,
                                                                     background: `${tx.mappedGroup.color}20`,
                                                                     color: tx.mappedGroup.color,
                                                                     textTransform: 'uppercase',
                                                                     letterSpacing: '0.02em',
-                                                                    border: `1px solid ${tx.mappedGroup.color}40`
+                                                                    border: `1px solid ${tx.mappedGroup.color}40`,
+                                                                    display: 'inline-block'
                                                                 }}>
                                                                     {tx.mappedGroup.name.split(' ')[0]}
-                                                                </div>
-                                                            )}
+                                                                </span>
+                                                            </div>
+                                                        )}
+                                                        <div className="tx-meta" style={{ marginTop: !tx.mappedGroup ? 2 : 0 }}>
+                                                            {tx.category} • {tx.date}
                                                         </div>
                                                     </div>
                                                 </div>
