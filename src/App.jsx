@@ -4,7 +4,7 @@ import {
     Lightbulb, Wallet, Building2, Sparkles, LayoutDashboard, Receipt,
     Coffee, ShoppingBag, Zap, Car, Home, CreditCard, Target, CalendarCheck,
     Users, Clock, CheckCircle2, DollarSign, Filter, ShieldCheck, Moon,
-    FileText, StickyNote, User, Share, Copy, X, Tag
+    FileText, StickyNote, User, Share, Copy, X
 } from 'lucide-react';
 
 
@@ -965,7 +965,7 @@ export default function App() {
                         </div>
 
                         {/* Filter Bar */}
-                        <div style={{ display: 'flex', gap: 12, marginBottom: 16, flexWrap: 'wrap' }}>
+                        <div style={{ display: 'flex', gap: 12, marginBottom: 16, overflowX: 'auto', paddingBottom: 4, scrollbarWidth: 'none' }}>
                             {/* Personal Check */}
                             <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                                 <div style={{ fontSize: 9, fontWeight: 700, color: 'var(--text-dim)', textTransform: 'uppercase', paddingLeft: 4 }}>Acct</div>
@@ -1089,23 +1089,6 @@ export default function App() {
                                 </button>
                             </div>
 
-                            {/* Tags Group */}
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                                <div style={{ fontSize: 9, fontWeight: 700, color: 'var(--text-dim)', textTransform: 'uppercase', paddingLeft: 4 }}>Tags</div>
-                                <button
-                                    onClick={() => setAccountFilters(f => ({ ...f, tagged: !f.tagged }))}
-                                    style={{
-                                        width: 36, height: 36, border: 'none', cursor: 'pointer', borderRadius: 8,
-                                        display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-                                        opacity: accountFilters.tagged ? 1 : 0.8,
-                                        boxShadow: accountFilters.tagged ? '0 0 0 1px var(--accent-magenta)' : 'none',
-                                        background: accountFilters.tagged ? 'var(--bg-card-elevated)' : 'var(--bg-card)'
-                                    }}
-                                >
-                                    <Tag size={14} color={accountFilters.tagged ? 'var(--accent-magenta)' : 'var(--text-secondary)'} style={{ opacity: accountFilters.tagged ? 1 : 0.6 }} />
-                                </button>
-                            </div>
-
                             {/* Flags Group */}
                             <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                                 <div style={{ fontSize: 9, fontWeight: 700, color: 'var(--text-dim)', textTransform: 'uppercase', paddingLeft: 4 }}>Flags</div>
@@ -1150,7 +1133,6 @@ export default function App() {
                                             // If ONLY budget filters are active, allow matched budgets
                                             const hasAcctFilters = accountFilters.personalChk || accountFilters.personalCC || accountFilters.bizChk || accountFilters.bizCC;
                                             const hasBudgetFilters = accountFilters.variable || accountFilters.fixed || accountFilters.wealth;
-                                            const isTagged = tx.tags && tx.tags.length > 0;
 
                                             let acctMatch = !hasAcctFilters;
                                             if (hasAcctFilters) {
@@ -1168,8 +1150,7 @@ export default function App() {
                                             }
 
                                             if (accountFilters.flagged && isFlagged) return true;
-                                            if (accountFilters.tagged && isTagged) return true;
-                                            if ((accountFilters.flagged || accountFilters.tagged) && !isFlagged && !isTagged && !hasAcctFilters && !hasBudgetFilters) return false;
+                                            if (accountFilters.flagged && !isFlagged && !hasAcctFilters && !hasBudgetFilters) return false;
 
                                             return acctMatch && budgetMatch;
                                         });
@@ -1201,7 +1182,6 @@ export default function App() {
                                             // If ONLY budget filters are active, allow matched budgets
                                             const hasAcctFilters = accountFilters.personalChk || accountFilters.personalCC || accountFilters.bizChk || accountFilters.bizCC;
                                             const hasBudgetFilters = accountFilters.variable || accountFilters.fixed || accountFilters.wealth;
-                                            const isTagged = tx.tags && tx.tags.length > 0;
 
                                             let acctMatch = !hasAcctFilters;
                                             if (hasAcctFilters) {
@@ -1219,8 +1199,7 @@ export default function App() {
                                             }
 
                                             if (accountFilters.flagged && isFlagged) return true;
-                                            if (accountFilters.tagged && isTagged) return true;
-                                            if ((accountFilters.flagged || accountFilters.tagged) && !isFlagged && !isTagged && !hasAcctFilters && !hasBudgetFilters) return false;
+                                            if (accountFilters.flagged && !isFlagged && !hasAcctFilters && !hasBudgetFilters) return false;
 
                                             return acctMatch && budgetMatch;
                                         });
@@ -1307,7 +1286,6 @@ export default function App() {
 
                                             const hasAcctFilters = accountFilters.personalChk || accountFilters.personalCC || accountFilters.bizChk || accountFilters.bizCC;
                                             const hasBudgetFilters = accountFilters.variable || accountFilters.fixed || accountFilters.wealth;
-                                            const isTagged = tx.tags && tx.tags.length > 0;
 
                                             let acctMatch = !hasAcctFilters;
                                             if (hasAcctFilters) {
@@ -1325,8 +1303,7 @@ export default function App() {
                                             }
 
                                             if (accountFilters.flagged && isFlagged) return true;
-                                            if (accountFilters.tagged && isTagged) return true;
-                                            if ((accountFilters.flagged || accountFilters.tagged) && !isFlagged && !isTagged && !hasAcctFilters && !hasBudgetFilters) return false;
+                                            if (accountFilters.flagged && !isFlagged && !hasAcctFilters && !hasBudgetFilters) return false;
 
                                             return acctMatch && budgetMatch;
                                         });
