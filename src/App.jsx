@@ -4,7 +4,7 @@ import {
     Lightbulb, Wallet, Building2, Sparkles, LayoutDashboard, Receipt,
     Coffee, ShoppingBag, Zap, Car, Home, CreditCard, Target, CalendarCheck,
     Users, Clock, CheckCircle2, DollarSign, Filter, ShieldCheck, Moon,
-    FileText, StickyNote, User, Share, Copy, X
+    FileText, StickyNote, User, Share, Copy, X, Tag
 } from 'lucide-react';
 
 
@@ -966,132 +966,161 @@ export default function App() {
 
                         {/* Filter Bar */}
                         <div style={{ display: 'flex', gap: 12, marginBottom: 16, overflowX: 'auto', paddingBottom: 4, scrollbarWidth: 'none' }}>
-                            {/* Personal Group */}
+                            {/* Personal Check */}
                             <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                                 <div style={{ fontSize: 9, fontWeight: 700, color: 'var(--text-dim)', textTransform: 'uppercase', paddingLeft: 4 }}>Acct</div>
-                                <div style={{ display: 'flex', gap: 12 }}>
-                                    <button
-                                        onClick={() => setAccountFilters(f => ({ ...f, personalChk: !f.personalChk }))}
-                                        className={accountFilters.personalChk ? 'tx-icon tx-icon-green' : 'tx-icon'}
-                                        style={{
-                                            width: 36, height: 36, border: 'none', cursor: 'pointer', borderRadius: 8,
-                                            display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                            opacity: accountFilters.personalChk ? 1 : 0.8,
-                                            boxShadow: accountFilters.personalChk ? '0 0 0 1px var(--accent-green)' : 'none',
-                                            background: accountFilters.personalChk ? 'var(--bg-card-elevated)' : 'var(--bg-card)'
-                                        }}
-                                    >
-                                        <Wallet size={14} className={accountFilters.personalChk ? 'text-green' : 'text-secondary'} style={{ opacity: accountFilters.personalChk ? 1 : 0.6 }} />
-                                    </button>
-                                    <button
-                                        onClick={() => setAccountFilters(f => ({ ...f, personalCC: !f.personalCC }))}
-                                        className={accountFilters.personalCC ? 'tx-icon tx-icon-green' : 'tx-icon'}
-                                        style={{
-                                            width: 36, height: 36, border: 'none', cursor: 'pointer', borderRadius: 8,
-                                            display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                            opacity: accountFilters.personalCC ? 1 : 0.8,
-                                            boxShadow: accountFilters.personalCC ? '0 0 0 1px var(--accent-green)' : 'none',
-                                            background: accountFilters.personalCC ? 'var(--bg-card-elevated)' : 'var(--bg-card)'
-                                        }}
-                                    >
-                                        <span style={{ fontSize: 10, fontWeight: 700, opacity: accountFilters.personalCC ? 1 : 0.6 }} className={accountFilters.personalCC ? 'text-green' : 'text-secondary'}>CC</span>
-                                    </button>
-                                </div>
+                                <button
+                                    onClick={() => setAccountFilters(f => ({ ...f, personalChk: !f.personalChk }))}
+                                    className={accountFilters.personalChk ? 'tx-icon tx-icon-green' : 'tx-icon'}
+                                    style={{
+                                        width: 36, height: 36, border: 'none', cursor: 'pointer', borderRadius: 8,
+                                        display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+                                        opacity: accountFilters.personalChk ? 1 : 0.8,
+                                        boxShadow: accountFilters.personalChk ? '0 0 0 1px var(--accent-green)' : 'none',
+                                        background: accountFilters.personalChk ? 'var(--bg-card-elevated)' : 'var(--bg-card)'
+                                    }}
+                                >
+                                    <Wallet size={14} className={accountFilters.personalChk ? 'text-green' : 'text-secondary'} style={{ opacity: accountFilters.personalChk ? 1 : 0.6 }} />
+                                </button>
                             </div>
 
-                            {/* Business Group */}
+                            {/* Personal CC */}
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                                <div style={{ fontSize: 9, color: 'transparent', userSelect: 'none' }}>_</div>
+                                <button
+                                    onClick={() => setAccountFilters(f => ({ ...f, personalCC: !f.personalCC }))}
+                                    className={accountFilters.personalCC ? 'tx-icon tx-icon-green' : 'tx-icon'}
+                                    style={{
+                                        width: 36, height: 36, border: 'none', cursor: 'pointer', borderRadius: 8,
+                                        display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+                                        opacity: accountFilters.personalCC ? 1 : 0.8,
+                                        boxShadow: accountFilters.personalCC ? '0 0 0 1px var(--accent-green)' : 'none',
+                                        background: accountFilters.personalCC ? 'var(--bg-card-elevated)' : 'var(--bg-card)'
+                                    }}
+                                >
+                                    <span style={{ fontSize: 10, fontWeight: 700, opacity: accountFilters.personalCC ? 1 : 0.6 }} className={accountFilters.personalCC ? 'text-green' : 'text-secondary'}>CC</span>
+                                </button>
+                            </div>
+
+                            {/* Biz Check */}
                             <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                                 <div style={{ fontSize: 9, fontWeight: 700, color: 'var(--text-dim)', textTransform: 'uppercase', paddingLeft: 4 }}>Biz</div>
-                                <div style={{ display: 'flex', gap: 12 }}>
-                                    <button
-                                        onClick={() => setAccountFilters(f => ({ ...f, bizChk: !f.bizChk }))}
-                                        className={accountFilters.bizChk ? 'tx-icon tx-icon-blue' : 'tx-icon'}
-                                        style={{
-                                            width: 36, height: 36, border: 'none', cursor: 'pointer', borderRadius: 8,
-                                            display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                            opacity: accountFilters.bizChk ? 1 : 0.8,
-                                            boxShadow: accountFilters.bizChk ? '0 0 0 1px var(--accent-blue)' : 'none',
-                                            background: accountFilters.bizChk ? 'var(--bg-card-elevated)' : 'var(--bg-card)'
-                                        }}
-                                    >
-                                        <Building2 size={14} className={accountFilters.bizChk ? 'text-blue' : 'text-secondary'} style={{ opacity: accountFilters.bizChk ? 1 : 0.6 }} />
-                                    </button>
-                                    <button
-                                        onClick={() => setAccountFilters(f => ({ ...f, bizCC: !f.bizCC }))}
-                                        className={accountFilters.bizCC ? 'tx-icon tx-icon-blue' : 'tx-icon'}
-                                        style={{
-                                            width: 36, height: 36, border: 'none', cursor: 'pointer', borderRadius: 8,
-                                            display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                            opacity: accountFilters.bizCC ? 1 : 0.8,
-                                            boxShadow: accountFilters.bizCC ? '0 0 0 1px var(--accent-blue)' : 'none',
-                                            background: accountFilters.bizCC ? 'var(--bg-card-elevated)' : 'var(--bg-card)'
-                                        }}
-                                    >
-                                        <span style={{ fontSize: 10, fontWeight: 700, opacity: accountFilters.bizCC ? 1 : 0.6 }} className={accountFilters.bizCC ? 'text-blue' : 'text-secondary'}>CC</span>
-                                    </button>
-                                </div>
+                                <button
+                                    onClick={() => setAccountFilters(f => ({ ...f, bizChk: !f.bizChk }))}
+                                    className={accountFilters.bizChk ? 'tx-icon tx-icon-blue' : 'tx-icon'}
+                                    style={{
+                                        width: 36, height: 36, border: 'none', cursor: 'pointer', borderRadius: 8,
+                                        display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+                                        opacity: accountFilters.bizChk ? 1 : 0.8,
+                                        boxShadow: accountFilters.bizChk ? '0 0 0 1px var(--accent-blue)' : 'none',
+                                        background: accountFilters.bizChk ? 'var(--bg-card-elevated)' : 'var(--bg-card)'
+                                    }}
+                                >
+                                    <Building2 size={14} className={accountFilters.bizChk ? 'text-blue' : 'text-secondary'} style={{ opacity: accountFilters.bizChk ? 1 : 0.6 }} />
+                                </button>
                             </div>
 
-                            {/* Budget Mappings Group */}
+                            {/* Biz CC */}
                             <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                                <div style={{ fontSize: 9, fontWeight: 700, color: 'var(--text-dim)', textTransform: 'uppercase', paddingLeft: 4 }}>Budget</div>
-                                <div style={{ display: 'flex', gap: 12 }}>
-                                    <button
-                                        onClick={() => setAccountFilters(f => ({ ...f, variable: !f.variable }))}
-                                        style={{
-                                            width: 36, height: 36, border: 'none', cursor: 'pointer', borderRadius: 8,
-                                            display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                            opacity: accountFilters.variable ? 1 : 0.8,
-                                            boxShadow: accountFilters.variable ? '0 0 0 1px #2DD4BF' : 'none',
-                                            background: accountFilters.variable ? '#2DD4BF20' : 'var(--bg-card)'
-                                        }}
-                                    >
-                                        <Zap size={14} color={accountFilters.variable ? '#2DD4BF' : 'var(--text-secondary)'} style={{ opacity: accountFilters.variable ? 1 : 0.6 }} />
-                                    </button>
-                                    <button
-                                        onClick={() => setAccountFilters(f => ({ ...f, fixed: !f.fixed }))}
-                                        style={{
-                                            width: 36, height: 36, border: 'none', cursor: 'pointer', borderRadius: 8,
-                                            display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                            opacity: accountFilters.fixed ? 1 : 0.8,
-                                            boxShadow: accountFilters.fixed ? '0 0 0 1px #5B7FFF' : 'none',
-                                            background: accountFilters.fixed ? '#5B7FFF20' : 'var(--bg-card)'
-                                        }}
-                                    >
-                                        <Home size={14} color={accountFilters.fixed ? '#5B7FFF' : 'var(--text-secondary)'} style={{ opacity: accountFilters.fixed ? 1 : 0.6 }} />
-                                    </button>
-                                    <button
-                                        onClick={() => setAccountFilters(f => ({ ...f, wealth: !f.wealth }))}
-                                        style={{
-                                            width: 36, height: 36, border: 'none', cursor: 'pointer', borderRadius: 8,
-                                            display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                            opacity: accountFilters.wealth ? 1 : 0.8,
-                                            boxShadow: accountFilters.wealth ? '0 0 0 1px #C8FF00' : 'none',
-                                            background: accountFilters.wealth ? '#C8FF0020' : 'var(--bg-card)'
-                                        }}
-                                    >
-                                        <TrendingUp size={14} color={accountFilters.wealth ? '#C8FF00' : 'var(--text-secondary)'} style={{ opacity: accountFilters.wealth ? 1 : 0.6 }} />
-                                    </button>
-                                </div>
+                                <div style={{ fontSize: 9, color: 'transparent', userSelect: 'none' }}>_</div>
+                                <button
+                                    onClick={() => setAccountFilters(f => ({ ...f, bizCC: !f.bizCC }))}
+                                    className={accountFilters.bizCC ? 'tx-icon tx-icon-blue' : 'tx-icon'}
+                                    style={{
+                                        width: 36, height: 36, border: 'none', cursor: 'pointer', borderRadius: 8,
+                                        display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+                                        opacity: accountFilters.bizCC ? 1 : 0.8,
+                                        boxShadow: accountFilters.bizCC ? '0 0 0 1px var(--accent-blue)' : 'none',
+                                        background: accountFilters.bizCC ? 'var(--bg-card-elevated)' : 'var(--bg-card)'
+                                    }}
+                                >
+                                    <span style={{ fontSize: 10, fontWeight: 700, opacity: accountFilters.bizCC ? 1 : 0.6 }} className={accountFilters.bizCC ? 'text-blue' : 'text-secondary'}>CC</span>
+                                </button>
                             </div>
 
-                            {/* Review Group */}
+                            {/* Budget Variable */}
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                                <div style={{ fontSize: 9, fontWeight: 700, color: 'var(--text-dim)', textTransform: 'uppercase', paddingLeft: 4, whiteSpace: 'nowrap' }}>Budget</div>
+                                <button
+                                    onClick={() => setAccountFilters(f => ({ ...f, variable: !f.variable }))}
+                                    style={{
+                                        width: 36, height: 36, border: 'none', cursor: 'pointer', borderRadius: 8,
+                                        display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+                                        opacity: accountFilters.variable ? 1 : 0.8,
+                                        boxShadow: accountFilters.variable ? '0 0 0 1px #2DD4BF' : 'none',
+                                        background: accountFilters.variable ? '#2DD4BF20' : 'var(--bg-card)'
+                                    }}
+                                >
+                                    <Zap size={14} color={accountFilters.variable ? '#2DD4BF' : 'var(--text-secondary)'} style={{ opacity: accountFilters.variable ? 1 : 0.6 }} />
+                                </button>
+                            </div>
+
+                            {/* Budget Fixed */}
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                                <div style={{ fontSize: 9, color: 'transparent', userSelect: 'none' }}>_</div>
+                                <button
+                                    onClick={() => setAccountFilters(f => ({ ...f, fixed: !f.fixed }))}
+                                    style={{
+                                        width: 36, height: 36, border: 'none', cursor: 'pointer', borderRadius: 8,
+                                        display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+                                        opacity: accountFilters.fixed ? 1 : 0.8,
+                                        boxShadow: accountFilters.fixed ? '0 0 0 1px #5B7FFF' : 'none',
+                                        background: accountFilters.fixed ? '#5B7FFF20' : 'var(--bg-card)'
+                                    }}
+                                >
+                                    <Home size={14} color={accountFilters.fixed ? '#5B7FFF' : 'var(--text-secondary)'} style={{ opacity: accountFilters.fixed ? 1 : 0.6 }} />
+                                </button>
+                            </div>
+
+                            {/* Budget Wealth */}
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                                <div style={{ fontSize: 9, color: 'transparent', userSelect: 'none' }}>_</div>
+                                <button
+                                    onClick={() => setAccountFilters(f => ({ ...f, wealth: !f.wealth }))}
+                                    style={{
+                                        width: 36, height: 36, border: 'none', cursor: 'pointer', borderRadius: 8,
+                                        display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+                                        opacity: accountFilters.wealth ? 1 : 0.8,
+                                        boxShadow: accountFilters.wealth ? '0 0 0 1px #C8FF00' : 'none',
+                                        background: accountFilters.wealth ? '#C8FF0020' : 'var(--bg-card)'
+                                    }}
+                                >
+                                    <TrendingUp size={14} color={accountFilters.wealth ? '#C8FF00' : 'var(--text-secondary)'} style={{ opacity: accountFilters.wealth ? 1 : 0.6 }} />
+                                </button>
+                            </div>
+
+                            {/* Tags Group */}
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                                <div style={{ fontSize: 9, fontWeight: 700, color: 'var(--text-dim)', textTransform: 'uppercase', paddingLeft: 4 }}>Tags</div>
+                                <button
+                                    onClick={() => setAccountFilters(f => ({ ...f, tagged: !f.tagged }))}
+                                    style={{
+                                        width: 36, height: 36, border: 'none', cursor: 'pointer', borderRadius: 8,
+                                        display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+                                        opacity: accountFilters.tagged ? 1 : 0.8,
+                                        boxShadow: accountFilters.tagged ? '0 0 0 1px var(--accent-magenta)' : 'none',
+                                        background: accountFilters.tagged ? 'var(--bg-card-elevated)' : 'var(--bg-card)'
+                                    }}
+                                >
+                                    <Tag size={14} color={accountFilters.tagged ? 'var(--accent-magenta)' : 'var(--text-secondary)'} style={{ opacity: accountFilters.tagged ? 1 : 0.6 }} />
+                                </button>
+                            </div>
+
+                            {/* Flags Group */}
                             <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                                 <div style={{ fontSize: 9, fontWeight: 700, color: 'var(--text-dim)', textTransform: 'uppercase', paddingLeft: 4 }}>Flags</div>
-                                <div style={{ display: 'flex', gap: 12 }}>
-                                    <button
-                                        onClick={() => setAccountFilters(f => ({ ...f, flagged: !f.flagged }))}
-                                        style={{
-                                            width: 36, height: 36, border: 'none', cursor: 'pointer', borderRadius: 8,
-                                            display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                            opacity: accountFilters.flagged ? 1 : 0.8,
-                                            boxShadow: accountFilters.flagged ? '0 0 0 1px var(--accent-amber)' : 'none',
-                                            background: accountFilters.flagged ? 'var(--bg-card-elevated)' : 'var(--bg-card)'
-                                        }}
-                                    >
-                                        <FileText size={14} className={accountFilters.flagged ? 'text-amber' : 'text-secondary'} style={{ opacity: accountFilters.flagged ? 1 : 0.6 }} />
-                                    </button>
-                                </div>
+                                <button
+                                    onClick={() => setAccountFilters(f => ({ ...f, flagged: !f.flagged }))}
+                                    style={{
+                                        width: 36, height: 36, border: 'none', cursor: 'pointer', borderRadius: 8,
+                                        display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+                                        opacity: accountFilters.flagged ? 1 : 0.8,
+                                        boxShadow: accountFilters.flagged ? '0 0 0 1px var(--accent-amber)' : 'none',
+                                        background: accountFilters.flagged ? 'var(--bg-card-elevated)' : 'var(--bg-card)'
+                                    }}
+                                >
+                                    <FileText size={14} className={accountFilters.flagged ? 'text-amber' : 'text-secondary'} style={{ opacity: accountFilters.flagged ? 1 : 0.6 }} />
+                                </button>
                             </div>
                         </div>
 
@@ -1121,6 +1150,7 @@ export default function App() {
                                             // If ONLY budget filters are active, allow matched budgets
                                             const hasAcctFilters = accountFilters.personalChk || accountFilters.personalCC || accountFilters.bizChk || accountFilters.bizCC;
                                             const hasBudgetFilters = accountFilters.variable || accountFilters.fixed || accountFilters.wealth;
+                                            const isTagged = tx.tags && tx.tags.length > 0;
 
                                             let acctMatch = !hasAcctFilters;
                                             if (hasAcctFilters) {
@@ -1138,7 +1168,8 @@ export default function App() {
                                             }
 
                                             if (accountFilters.flagged && isFlagged) return true;
-                                            if (accountFilters.flagged && !isFlagged && !hasAcctFilters && !hasBudgetFilters) return false;
+                                            if (accountFilters.tagged && isTagged) return true;
+                                            if ((accountFilters.flagged || accountFilters.tagged) && !isFlagged && !isTagged && !hasAcctFilters && !hasBudgetFilters) return false;
 
                                             return acctMatch && budgetMatch;
                                         });
@@ -1170,6 +1201,7 @@ export default function App() {
                                             // If ONLY budget filters are active, allow matched budgets
                                             const hasAcctFilters = accountFilters.personalChk || accountFilters.personalCC || accountFilters.bizChk || accountFilters.bizCC;
                                             const hasBudgetFilters = accountFilters.variable || accountFilters.fixed || accountFilters.wealth;
+                                            const isTagged = tx.tags && tx.tags.length > 0;
 
                                             let acctMatch = !hasAcctFilters;
                                             if (hasAcctFilters) {
@@ -1187,7 +1219,8 @@ export default function App() {
                                             }
 
                                             if (accountFilters.flagged && isFlagged) return true;
-                                            if (accountFilters.flagged && !isFlagged && !hasAcctFilters && !hasBudgetFilters) return false;
+                                            if (accountFilters.tagged && isTagged) return true;
+                                            if ((accountFilters.flagged || accountFilters.tagged) && !isFlagged && !isTagged && !hasAcctFilters && !hasBudgetFilters) return false;
 
                                             return acctMatch && budgetMatch;
                                         });
@@ -1265,11 +1298,37 @@ export default function App() {
                                             const acct = (tx.account_name || '').toLowerCase();
                                             const isBiz = acct.includes('business');
                                             const isCC = acct.includes('cc') || acct.includes('credit');
-                                            if (accountFilters.personalChk && !isBiz && !isCC) return true;
-                                            if (accountFilters.personalCC && !isBiz && isCC) return true;
-                                            if (accountFilters.bizChk && isBiz && !isCC) return true;
-                                            if (accountFilters.bizCC && isBiz && isCC) return true;
-                                            return false;
+                                            const isFlagged = data.flaggedIds.includes(tx.id);
+
+                                            const budgetName = tx.mappedGroup ? (tx.mappedGroup.name || '').toLowerCase() : '';
+                                            const isVariable = budgetName.includes('variable');
+                                            const isFixed = budgetName.includes('fixed');
+                                            const isWealth = budgetName.includes('wealth');
+
+                                            const hasAcctFilters = accountFilters.personalChk || accountFilters.personalCC || accountFilters.bizChk || accountFilters.bizCC;
+                                            const hasBudgetFilters = accountFilters.variable || accountFilters.fixed || accountFilters.wealth;
+                                            const isTagged = tx.tags && tx.tags.length > 0;
+
+                                            let acctMatch = !hasAcctFilters;
+                                            if (hasAcctFilters) {
+                                                if (accountFilters.personalChk && !isBiz && !isCC) acctMatch = true;
+                                                if (accountFilters.personalCC && !isBiz && isCC) acctMatch = true;
+                                                if (accountFilters.bizChk && isBiz && !isCC) acctMatch = true;
+                                                if (accountFilters.bizCC && isBiz && isCC) acctMatch = true;
+                                            }
+
+                                            let budgetMatch = !hasBudgetFilters;
+                                            if (hasBudgetFilters) {
+                                                if (accountFilters.variable && isVariable) budgetMatch = true;
+                                                if (accountFilters.fixed && isFixed) budgetMatch = true;
+                                                if (accountFilters.wealth && isWealth) budgetMatch = true;
+                                            }
+
+                                            if (accountFilters.flagged && isFlagged) return true;
+                                            if (accountFilters.tagged && isTagged) return true;
+                                            if ((accountFilters.flagged || accountFilters.tagged) && !isFlagged && !isTagged && !hasAcctFilters && !hasBudgetFilters) return false;
+
+                                            return acctMatch && budgetMatch;
                                         });
                                     }
                                     return filtered.length > txLimit && (
