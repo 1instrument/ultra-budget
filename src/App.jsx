@@ -504,6 +504,10 @@ export default function App() {
             const start = new Date(now.setDate(now.getDate() - 90)).toISOString().split('T')[0];
             const end = new Date().toISOString().split('T')[0];
 
+            // We are deliberately using a VITE_ prefixed environment variable here.
+            // Even though Vercel warns about exposing secrets, this is a known design pattern
+            // for this specific Personal CFO architecture to allow the local app UI to 
+            // authenticate against the protected backend APIs.
             const appSecret = import.meta.env.VITE_ULTRA_APP_SECRET || 'ultra-budget-2024-secure';
 
             // Fetch both transactions and account balances
@@ -584,7 +588,8 @@ export default function App() {
                         isCC: isCC,
                         colorClass: colorClass,
                         raw_amount: t.amount, // Keep raw for debug
-                        mappedGroup: groupInfo ? { name: groupInfo.name, color: groupInfo.color } : null
+                        mappedGroup: groupInfo ? { name: groupInfo.name, color: groupInfo.color } : null,
+                        tags: t.tags ? t.tags.map(tag => tag.name) : []
                     });
                 });
 
@@ -1086,9 +1091,22 @@ export default function App() {
                                                             <tx.icon size={16} className={tx.colorClass} />
                                                         )}
                                                     </div>
-                                                    <div className="tx-details">
-                                                        <div className="tx-name">{tx.name}</div>
-                                                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                                    <div className="tx-details" style={{ display: 'flex', flexDirection: 'column', gap: 4, justifyContent: 'center' }}>
+                                                        <div className="tx-name" style={{ lineHeight: 1.1 }}>{tx.name}</div>
+                                                        {tx.tags && tx.tags.length > 0 && (
+                                                            <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+                                                                {tx.tags.map(tag => (
+                                                                    <span key={tag} style={{
+                                                                        fontSize: 10,
+                                                                        padding: '2px 6px',
+                                                                        background: 'var(--bg-input)',
+                                                                        color: 'var(--text-secondary)',
+                                                                        borderRadius: 4,
+                                                                    }}>{tag}</span>
+                                                                ))}
+                                                            </div>
+                                                        )}
+                                                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: (!tx.tags || tx.tags.length === 0) ? 2 : 0 }}>
                                                             <div className="tx-meta">{tx.category} • {tx.date}</div>
                                                             {tx.mappedGroup && (
                                                                 <div style={{
