@@ -1096,15 +1096,11 @@ export default function App() {
                                                         {tx.mappedGroup && (
                                                             <div style={{ display: 'flex' }}>
                                                                 <span style={{
-                                                                    fontSize: 9,
-                                                                    fontWeight: 700,
-                                                                    padding: '2px 6px',
-                                                                    borderRadius: 10,
-                                                                    background: `${tx.mappedGroup.color}20`,
+                                                                    fontSize: 10,
+                                                                    fontWeight: 800,
                                                                     color: tx.mappedGroup.color,
                                                                     textTransform: 'uppercase',
-                                                                    letterSpacing: '0.02em',
-                                                                    border: `1px solid ${tx.mappedGroup.color}40`,
+                                                                    letterSpacing: '0.05em',
                                                                     display: 'inline-block'
                                                                 }}>
                                                                     {tx.mappedGroup.name.split(' ')[0]}
