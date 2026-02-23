@@ -965,7 +965,7 @@ export default function App() {
                         </div>
 
                         {/* Filter Bar */}
-                        <div style={{ display: 'flex', gap: 12, marginBottom: 16, overflowX: 'auto', paddingBottom: 4, scrollbarWidth: 'none' }}>
+                        <div style={{ display: 'flex', gap: 12, marginBottom: 16, flexWrap: 'wrap' }}>
                             {/* Personal Check */}
                             <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                                 <div style={{ fontSize: 9, fontWeight: 700, color: 'var(--text-dim)', textTransform: 'uppercase', paddingLeft: 4 }}>Acct</div>
