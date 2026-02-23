@@ -17,6 +17,7 @@ const CURRENT_DAY = new Date().getDate();
 
 const INITIAL_STATE = {
     salary: 4000,
+    w2Wages: 2100,
     personalBalance: 5200,
     bizBalance: 28500,
     streak: 1,
@@ -49,7 +50,15 @@ const INITIAL_STATE = {
         { id: '2', name: 'New Car', target: 35000, startingBalance: 5000, monthlyContributions: {} }
     ],
     notes: '',
-    flaggedIds: []
+    flaggedIds: [],
+    mappings: {
+        'Dining': 'variable',
+        'Groceries': 'variable',
+        'Shopping': 'variable',
+        'Housing': 'fixed',
+        'Utilities': 'fixed',
+        'Business': 'variable'
+    }
 };
 
 
@@ -222,12 +231,14 @@ const migrateData = (incoming) => {
         ...incoming,
         personalBalance: incoming.personalBalance ?? INITIAL_STATE.personalBalance,
         bizBalance: incoming.bizBalance ?? INITIAL_STATE.bizBalance,
+        w2Wages: incoming.w2Wages ?? INITIAL_STATE.w2Wages,
         groups: incoming.groups || INITIAL_STATE.groups,
         goals: incoming.goals || INITIAL_STATE.goals,
         flaggedIds: incoming.flaggedIds || INITIAL_STATE.flaggedIds,
         streak: incoming.streak ?? INITIAL_STATE.streak,
         lastCheckIn: incoming.lastCheckIn || INITIAL_STATE.lastCheckIn,
-        notes: incoming.notes ?? INITIAL_STATE.notes
+        notes: incoming.notes ?? INITIAL_STATE.notes,
+        mappings: incoming.mappings || INITIAL_STATE.mappings
     };
 };
 
@@ -493,13 +504,15 @@ export default function App() {
             const start = new Date(now.setDate(now.getDate() - 90)).toISOString().split('T')[0];
             const end = new Date().toISOString().split('T')[0];
 
+            const appSecret = import.meta.env.VITE_ULTRA_APP_SECRET || 'ultra-budget-2024-secure';
+
             // Fetch both transactions and account balances
             const [txResponse, balanceResponse] = await Promise.all([
                 fetch(`/api/lunch-money?start_date=${start}&end_date=${end}`, {
-                    headers: { 'x-ultra-secret': 'ultra-budget-2024-secure' }
+                    headers: { 'x-ultra-secret': appSecret }
                 }),
                 fetch('/api/lunch-money-balances', {
-                    headers: { 'x-ultra-secret': 'ultra-budget-2024-secure' }
+                    headers: { 'x-ultra-secret': appSecret }
                 })
             ]);
 
@@ -521,6 +534,9 @@ export default function App() {
                     };
                 };
 
+                const mappings = data.mappings || {};
+                const groups = data.groups || [];
+
                 txJson.transactions.forEach(t => {
                     let amount = Number(t.amount);
 
@@ -528,6 +544,25 @@ export default function App() {
                     amount = -amount;
 
                     const { icon, isCC, colorClass } = getIconAndColor(t.account_name);
+
+                    // Mapping Logic
+                    const category = t.category_name || 'Uncategorized';
+                    let mappedGroupId = mappings[category];
+
+                    // Fuzzy fallback (only for expenses/personal spending)
+                    if (!mappedGroupId && amount < 0) {
+                        const lowerCat = category.toLowerCase();
+                        const lowerPayee = (t.payee || '').toLowerCase();
+                        if (['food', 'dining', 'grocery', 'restaurants', 'coffee', 'alcohol', 'shop'].some(k => lowerCat.includes(k) || lowerPayee.includes(k))) {
+                            mappedGroupId = 'variable';
+                        } else if (['mortgage', 'rent', 'bill', 'utility', 'insurance', 'internet', 'phone'].some(k => lowerCat.includes(k))) {
+                            mappedGroupId = 'fixed';
+                        } else if (['invest', 'save', 'vanguard', 'transfer'].some(k => lowerCat.includes(k) || lowerPayee.includes(k))) {
+                            mappedGroupId = 'wealth';
+                        }
+                    }
+
+                    const groupInfo = groups.find(g => g.id === mappedGroupId);
 
                     // Parse transaction name - simplify Shopify and Gusto transactions
                     let displayName = t.payee;
@@ -548,7 +583,8 @@ export default function App() {
                         icon: icon,
                         isCC: isCC,
                         colorClass: colorClass,
-                        raw_amount: t.amount // Keep raw for debug
+                        raw_amount: t.amount, // Keep raw for debug
+                        mappedGroup: groupInfo ? { name: groupInfo.name, color: groupInfo.color } : null
                     });
                 });
 
@@ -688,12 +724,35 @@ export default function App() {
                             </div>
                         </div>
 
-                        {/* Salary Input */}
+                        {/* Salary Draw */}
                         <div className="card mb-3">
                             <span className="card-title">Salary Draw</span>
                             <div className="flex items-center gap-2 mt-2">
                                 <span className="text-dim" style={{ fontSize: 24, fontWeight: 700 }}>$</span>
                                 <input type="number" className="input-inline stat-medium" style={{ fontSize: 24, fontWeight: 700, flex: 1 }} value={data.salary} onChange={(e) => updateField('salary', Number(e.target.value) || 0)} />
+                            </div>
+
+                            {/* W2 + Transfer Breakdown */}
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginTop: 12 }}>
+                                <div style={{ background: 'var(--bg-input)', borderRadius: 10, padding: 10 }}>
+                                    <div style={{ fontSize: 9, fontWeight: 700, color: 'var(--text-dim)', textTransform: 'uppercase', marginBottom: 4 }}>W2 Wages</div>
+                                    <div className="flex items-center">
+                                        <span className="text-dim" style={{ fontSize: 12, marginRight: 2 }}>$</span>
+                                        <input type="number" className="input-inline" style={{ fontSize: 16, fontWeight: 600, width: 70 }} value={data.w2Wages} onChange={(e) => updateField('w2Wages', Number(e.target.value) || 0)} />
+                                    </div>
+                                </div>
+                                <div style={{ background: 'var(--bg-input)', borderRadius: 10, padding: 10 }}>
+                                    <div style={{ fontSize: 9, fontWeight: 700, color: 'var(--text-dim)', textTransform: 'uppercase', marginBottom: 4 }}>Transfer Needed</div>
+                                    <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--accent-teal)' }}>{fmt(Math.max(0, data.salary - data.w2Wages))}</div>
+                                </div>
+                            </div>
+
+                            {/* Runway Indicator */}
+                            <div style={{ background: 'var(--bg-input)', borderRadius: 10, padding: 10, marginTop: 8, textAlign: 'center' }}>
+                                <div style={{ fontSize: 9, fontWeight: 700, color: 'var(--text-dim)', textTransform: 'uppercase', marginBottom: 4 }}>Biz Runway at This Draw</div>
+                                <div style={{ fontSize: 18, fontWeight: 700, color: (data.bizBalance / Math.max(1, data.salary - data.w2Wages)) > 6 ? 'var(--accent-green)' : 'var(--accent-amber)' }}>
+                                    {(data.salary - data.w2Wages) > 0 ? (data.bizBalance / (data.salary - data.w2Wages)).toFixed(1) : '∞'} months
+                                </div>
                             </div>
 
                             <div className="progress-container mt-3" style={{ height: 6, background: 'var(--bg-input)' }}>
@@ -1029,7 +1088,24 @@ export default function App() {
                                                     </div>
                                                     <div className="tx-details">
                                                         <div className="tx-name">{tx.name}</div>
-                                                        <div className="tx-meta">{tx.category} • {tx.date}</div>
+                                                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                                            <div className="tx-meta">{tx.category} • {tx.date}</div>
+                                                            {tx.mappedGroup && (
+                                                                <div style={{
+                                                                    fontSize: 9,
+                                                                    fontWeight: 700,
+                                                                    padding: '1px 6px',
+                                                                    borderRadius: 10,
+                                                                    background: `${tx.mappedGroup.color}20`,
+                                                                    color: tx.mappedGroup.color,
+                                                                    textTransform: 'uppercase',
+                                                                    letterSpacing: '0.02em',
+                                                                    border: `1px solid ${tx.mappedGroup.color}40`
+                                                                }}>
+                                                                    {tx.mappedGroup.name.split(' ')[0]}
+                                                                </div>
+                                                            )}
+                                                        </div>
                                                     </div>
                                                 </div>
                                                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 12 }}>
@@ -1120,79 +1196,59 @@ export default function App() {
                     /* Strategy Page */
                     <>
                         <div className="mb-3">
-                            <h1 style={{ fontSize: 18, fontWeight: 700, marginBottom: 4 }}>Execution Strategy</h1>
-                            <p className="text-secondary" style={{ fontSize: 11 }}>The system that makes the budget work</p>
+                            <h1 style={{ fontSize: 18, fontWeight: 700, marginBottom: 4 }}>CEO Strategy</h1>
+                            <p className="text-secondary" style={{ fontSize: 11 }}>Separating the business reservoir from the household pipe</p>
                         </div>
 
-                        {/* Daily Habit */}
+                        {/* The Draw Habit */}
                         <div className="card mb-3" style={{ borderLeft: '3px solid var(--accent-teal)' }}>
                             <div className="flex items-center gap-2 mb-2">
-                                <Clock size={14} className="text-teal" />
-                                <span style={{ fontSize: 13, fontWeight: 600 }}>Daily: 2-Minute Check-in</span>
+                                <TrendingUp size={14} className="text-teal" />
+                                <span style={{ fontSize: 13, fontWeight: 600 }}>The $4k Target</span>
                             </div>
                             <p className="text-secondary" style={{ fontSize: 11, lineHeight: 1.6, marginBottom: 12 }}>
-                                Every morning, open this app and glance at your cashflow status. No action required—just awareness. This single habit builds financial mindfulness.
+                                Your goal is a steady $4,000 household income. Your W2 covers ~$2,100 automatically. Your job is to move the remaining **{fmt(Math.max(0, data.salary - data.w2Wages))}** from the business to personal checking.
                             </p>
                             <div style={{ background: 'var(--bg-input)', borderRadius: 12, padding: 12 }}>
-                                <div style={{ fontSize: 10, fontWeight: 600, color: 'var(--text-dim)', marginBottom: 8 }}>ASK YOURSELF:</div>
-                                <div style={{ fontSize: 12, lineHeight: 1.7, color: 'var(--text-secondary)' }}>
-                                    ✓ Any new revenue to log?<br />
-                                    ✓ Any surprise expenses?<br />
-                                    ✓ Is today a spending day or earning day?
+                                <div style={{ fontSize: 10, fontWeight: 600, color: 'var(--text-dim)', marginBottom: 8 }}>THIS MONTH'S ACTION:</div>
+                                <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--accent-teal)' }}>
+                                    Transfer {fmt(Math.max(0, data.salary - data.w2Wages))} from Biz Checking
                                 </div>
                             </div>
                         </div>
 
-                        {/* Weekly Sync */}
+                        {/* Weekly Runway Check */}
                         <div className="card mb-3" style={{ borderLeft: '3px solid var(--accent-blue)' }}>
                             <div className="flex items-center gap-2 mb-2">
-                                <Users size={14} className="text-blue" />
-                                <span style={{ fontSize: 13, fontWeight: 600 }}>Weekly: Partner Sync</span>
+                                <Building2 size={14} className="text-blue" />
+                                <span style={{ fontSize: 13, fontWeight: 600 }}>The Runway Philosophy</span>
                             </div>
                             <p className="text-secondary" style={{ fontSize: 11, lineHeight: 1.6, marginBottom: 12 }}>
-                                Every Sunday, 15 minutes with your wife. Share your screen. No blame—just facts and adjustments.
+                                Slow revenue months are okay. As long as your Business Runway is &gt;6 months, your personal salary draw is safe. Don't touch the household budget based on a slow week.
                             </p>
-                            <div style={{ background: 'var(--bg-input)', borderRadius: 12, padding: 12 }}>
-                                <div style={{ fontSize: 10, fontWeight: 600, color: 'var(--text-dim)', marginBottom: 8 }}>AGENDA:</div>
-                                <div style={{ fontSize: 12, lineHeight: 1.8, color: 'var(--text-secondary)' }}>
-                                    1. Show cashflow status<br />
-                                    2. Review variable spending together<br />
-                                    3. Flag any big expenses coming up<br />
-                                    4. Celebrate wins (even small ones)
+                            <div className="bento-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                                <div style={{ background: 'var(--bg-input)', borderRadius: 10, padding: 10 }}>
+                                    <div style={{ fontSize: 9, color: 'var(--text-dim)' }}>BIZ BALANCE</div>
+                                    <div style={{ fontSize: 14, fontWeight: 700 }}>{fmt(data.bizBalance)}</div>
+                                </div>
+                                <div style={{ background: 'var(--bg-input)', borderRadius: 10, padding: 10 }}>
+                                    <div style={{ fontSize: 9, color: 'var(--text-dim)' }}>RUNWAY</div>
+                                    <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--accent-blue)' }}>
+                                        {(data.salary - data.w2Wages) > 0 ? (data.bizBalance / (data.salary - data.w2Wages)).toFixed(1) : '∞'}mo
+                                    </div>
                                 </div>
                             </div>
                         </div>
 
-                        {/* Monthly Goal */}
-                        <div className="card mb-3" style={{ borderLeft: '3px solid var(--accent-primary)' }}>
+                        {/* Partner Sync */}
+                        <div className="card mb-3" style={{ borderLeft: '3px solid var(--accent-primary)', background: 'linear-gradient(135deg, rgba(91, 127, 255, 0.05), transparent)' }}>
                             <div className="flex items-center gap-2 mb-2">
-                                <Target size={14} className="text-accent" />
-                                <span style={{ fontSize: 13, fontWeight: 600 }}>Spending Goal</span>
+                                <Users size={14} className="text-accent" />
+                                <span style={{ fontSize: 13, fontWeight: 600 }}>Sunday Partner Sync</span>
                             </div>
                             <p className="text-secondary" style={{ fontSize: 11, lineHeight: 1.6, marginBottom: 12 }}>
-                                Keep allocations within your salary draw. Focus on hitting your savings and debt payoff goals.
+                                15 minutes with your wife. Show her the Runway first. It removes the stress. Then review the "Variable Spending" group together.
                             </p>
-                            <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 8 }}>
-                                <div style={{ background: 'var(--bg-input)', borderRadius: 10, padding: 10, textAlign: 'center' }}>
-                                    <div style={{ fontSize: 18, fontWeight: 700 }} className="text-green">Sustainable</div>
-                                    <div style={{ fontSize: 9, color: 'var(--text-dim)', marginTop: 2 }}>CASHFLOW</div>
-                                </div>
-                            </div>
-                        </div>
-
-
-
-                        {/* Quick Rules */}
-                        <div className="card" style={{ background: 'linear-gradient(135deg, rgba(45, 212, 191, 0.08), rgba(91, 127, 255, 0.05))', border: '1px solid rgba(45, 212, 191, 0.15)' }}>
-                            <div className="flex items-center gap-2 mb-2">
-                                <CheckCircle2 size={14} className="text-teal" />
-                                <span style={{ fontSize: 13, fontWeight: 600 }}>The 3 Rules</span>
-                            </div>
-                            <div style={{ fontSize: 12, lineHeight: 1.9, color: 'var(--text-secondary)' }}>
-                                <strong>1. Savings First.</strong> Always pay your future self before variable spending.<br />
-                                <strong>2. Manual Review.</strong> Never trust an automated sync blindly.<br />
-                                <strong>3. Proportionality.</strong> Wealth grows through discipline, not luck.
-                            </div>
                         </div>
                     </>
                 )}

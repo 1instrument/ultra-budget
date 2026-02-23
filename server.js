@@ -3,6 +3,8 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import lunchMoneyHandler from './api/lunch-money.js';
 import lunchMoneyBalancesHandler from './api/lunch-money-balances.js';
+import financialDigestHandler from './api/financial-digest.js';
+import saveMappingHandler from './api/save-mapping.js';
 
 dotenv.config();
 
@@ -31,6 +33,8 @@ const adaptHandler = (handler) => async (req, res) => {
 
 app.get('/api/lunch-money', adaptHandler(lunchMoneyHandler));
 app.get('/api/lunch-money-balances', adaptHandler(lunchMoneyBalancesHandler));
+app.get('/api/financial-digest', adaptHandler(financialDigestHandler));
+app.post('/api/save-mapping', adaptHandler(saveMappingHandler));
 
 app.listen(PORT, () => {
     console.log(`Backend server running on http://localhost:${PORT}`);
