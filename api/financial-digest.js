@@ -15,8 +15,12 @@ export default async function handler(req, res) {
     const supabaseServiceKey = process.env.SUPABASE_SERVICE_KEY;
     const lmApiKey = process.env.LUNCH_MONEY_API_KEY;
 
-    if (!supabaseServiceKey || !lmApiKey) {
-        return res.status(500).json({ error: 'Server configuration error: Keys missing' });
+    if (!supabaseServiceKey) {
+        return res.status(500).json({ error: 'Server configuration error: SUPABASE_SERVICE_KEY missing' });
+    }
+
+    if (!lmApiKey && !process.env.SimpleFIN) {
+        return res.status(500).json({ error: 'No data source configured (SimpleFIN or Lunch Money)' });
     }
 
     try {

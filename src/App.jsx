@@ -493,44 +493,26 @@ export default function App() {
     const pct = (a) => data.salary > 0 ? ((a / data.salary) * 100).toFixed(0) : 0;
 
 
-    const syncLunchMoneyData = async () => {
-
-
-
+    const syncSimpleFinData = async () => {
         setIsSyncing(true);
         try {
-            // Fetch last 90 days to ensure enough data for rolling metrics
-            const now = new Date();
-            const start = new Date(now.setDate(now.getDate() - 90)).toISOString().split('T')[0];
-            const end = new Date().toISOString().split('T')[0];
-
-            // We are deliberately using a VITE_ prefixed environment variable here.
-            // Even though Vercel warns about exposing secrets, this is a known design pattern
-            // for this specific Personal CFO architecture to allow the local app UI to 
-            // authenticate against the protected backend APIs.
             const appSecret = import.meta.env.VITE_ULTRA_APP_SECRET || 'ultra-budget-2024-secure';
 
-            // Fetch both transactions and account balances
-            const [txResponse, balanceResponse] = await Promise.all([
-                fetch(`/api/lunch-money?start_date=${start}&end_date=${end}`, {
-                    headers: { 'x-ultra-secret': appSecret }
-                }),
-                fetch('/api/lunch-money-balances', {
-                    headers: { 'x-ultra-secret': appSecret }
-                })
-            ]);
+            // Fetch unified data from SimpleFIN proxy
+            const response = await fetch('/api/simplefin', {
+                headers: { 'x-ultra-secret': appSecret }
+            });
 
-            const txJson = await txResponse.json();
-            const balanceJson = await balanceResponse.json();
+            const json = await response.json();
 
             // Update transactions
-            if (txJson.transactions) {
+            if (json.transactions) {
                 const mapped = [];
 
                 // Helper to determine icon and color based on account
                 const getIconAndColor = (accountName) => {
                     const isBusiness = accountName?.toLowerCase().includes('business');
-                    const isCC = accountName?.toLowerCase().includes('cc') || accountName?.toLowerCase().includes('credit');
+                    const isCC = accountName?.toLowerCase().includes('cc') || accountName?.toLowerCase().includes('credit') || accountName?.toLowerCase().includes('freedom');
                     return {
                         icon: isBusiness ? Building2 : Wallet,
                         isCC: isCC,
@@ -541,70 +523,50 @@ export default function App() {
                 const mappings = data.mappings || {};
                 const groups = data.groups || [];
 
-                txJson.transactions.forEach(t => {
-                    let amount = Number(t.amount);
-
-                    // Flip sign: Lunch Money API returns expenses as positive, income as negative
-                    amount = -amount;
-
+                json.transactions.forEach(t => {
+                    const amount = Number(t.amount); // SimpleFIN standard (negative = expense)
                     const { icon, isCC, colorClass } = getIconAndColor(t.account_name);
 
-                    // Mapping Logic
-                    const category = t.category_name || 'Uncategorized';
-                    let mappedGroupId = mappings[category];
-
-                    // Fuzzy fallback (only for expenses/personal spending)
-                    if (!mappedGroupId && amount < 0) {
-                        const lowerCat = category.toLowerCase();
-                        const lowerPayee = (t.payee || '').toLowerCase();
-                        if (['food', 'dining', 'grocery', 'restaurants', 'coffee', 'alcohol', 'shop'].some(k => lowerCat.includes(k) || lowerPayee.includes(k))) {
-                            mappedGroupId = 'variable';
-                        } else if (['mortgage', 'rent', 'bill', 'utility', 'insurance', 'internet', 'phone'].some(k => lowerCat.includes(k))) {
-                            mappedGroupId = 'fixed';
-                        } else if (['invest', 'save', 'vanguard', 'transfer'].some(k => lowerCat.includes(k) || lowerPayee.includes(k))) {
-                            mappedGroupId = 'wealth';
-                        }
-                    }
-
-                    const groupInfo = groups.find(g => g.id === mappedGroupId);
-
-                    // Parse transaction name - simplify Shopify and Gusto transactions
-                    let displayName = t.payee;
-                    const lowerPayee = (t.payee || '').toLowerCase();
-                    if (lowerPayee.includes('shopify')) {
-                        displayName = 'Shopify';
-                    } else if (lowerPayee.includes('gusto')) {
-                        displayName = 'Gusto';
-                    }
+                    // Skip the complicated category-mapping logic for now as requested
+                    // The App will show "Uncategorized" but transactions will flow.
+                    
+                    // Simple Name Parser
+                    let displayName = t.payee || 'Unknown';
+                    // Optional simplification as before
+                    const lowerPayee = displayName.toLowerCase();
+                    if (lowerPayee.includes('shopify')) displayName = 'Shopify';
+                    else if (lowerPayee.includes('gusto')) displayName = 'Gusto';
 
                     mapped.push({
                         id: t.id,
                         name: displayName,
-                        category: t.category_name || 'Uncategorized',
+                        category: t.category || 'Uncategorized',
                         amount: amount,
                         date: t.date,
                         account_name: t.account_name || 'Unknown',
                         icon: icon,
                         isCC: isCC,
                         colorClass: colorClass,
-                        raw_amount: t.amount, // Keep raw for debug
-                        mappedGroup: groupInfo ? { name: groupInfo.name, color: groupInfo.color } : null,
-                        tags: t.tags ? t.tags.map(tag => tag.name) : []
+                        raw_amount: t.amount,
+                        mappedGroup: null, // Address categorization later
+                        tags: []
                     });
                 });
 
                 // Sort by date descending
                 mapped.sort((a, b) => new Date(b.date) - new Date(a.date));
-
                 setTransactions(mapped);
-
-
             }
 
             // Update account balances
-            if (balanceJson.accounts) {
-                const businessAccount = balanceJson.accounts.find(acc => acc.name === 'Business Checking');
-                const personalAccount = balanceJson.accounts.find(acc => acc.name === 'Personal Checking');
+            if (json.accounts) {
+                // Fuzzy matching for business and personal accounts
+                const businessAccount = json.accounts.find(acc => acc.name?.toLowerCase().includes('business'));
+                // Flexible personal account matching - look for "Checking" that isn't business
+                const personalAccount = json.accounts.find(acc => 
+                    acc.name?.toLowerCase().includes('checking') && 
+                    !acc.name?.toLowerCase().includes('business')
+                ) || json.accounts.find(acc => acc.name?.toLowerCase().includes('total checking'));
 
                 setData(prev => ({
                     ...prev,
@@ -613,17 +575,7 @@ export default function App() {
                 }));
             }
         } catch (e) {
-            console.error('Sync failed', e);
-            // Fallback for debug/demo mode
-            if (debugMode) {
-                const mock = [
-                    { id: 'm1', name: 'Waitrose', category: 'Groceries', amount: -85.20, date: new Date().toISOString().split('T')[0], account_name: 'Personal Checking', icon: Wallet, isCC: false, colorClass: 'text-green' },
-                    { id: 'm2', name: 'Shopify Payout', category: 'Income', amount: 1250.00, date: new Date().toISOString().split('T')[0], account_name: 'Business Checking', icon: Building2, isCC: false, colorClass: 'text-blue' },
-                    { id: 'm3', name: 'Apple.com', category: 'Shopping', amount: -199.00, date: new Date().toISOString().split('T')[0], account_name: 'Personal CC', icon: Wallet, isCC: true, colorClass: 'text-green' },
-                    { id: 'm4', name: 'AWS Cloud', category: 'Business', amount: -45.00, date: new Date().toISOString().split('T')[0], account_name: 'Business CC', icon: Building2, isCC: true, colorClass: 'text-blue' }
-                ];
-                setTransactions(mock);
-            }
+            console.error('SimpleFIN Sync failed', e);
         } finally {
             setIsSyncing(false);
         }
@@ -632,7 +584,7 @@ export default function App() {
     // Auto-sync when entering transactions page
     useEffect(() => {
         if (page === 'transactions') {
-            syncLunchMoneyData();
+            syncSimpleFinData();
         }
     }, [page]);
 

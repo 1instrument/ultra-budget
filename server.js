@@ -1,8 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
-import lunchMoneyHandler from './api/lunch-money.js';
-import lunchMoneyBalancesHandler from './api/lunch-money-balances.js';
+import simplefinHandler from './api/simplefin.js';
 import financialDigestHandler from './api/financial-digest.js';
 import saveMappingHandler from './api/save-mapping.js';
 
@@ -31,12 +30,11 @@ const adaptHandler = (handler) => async (req, res) => {
     }
 };
 
-app.get('/api/lunch-money', adaptHandler(lunchMoneyHandler));
-app.get('/api/lunch-money-balances', adaptHandler(lunchMoneyBalancesHandler));
+app.get('/api/simplefin', adaptHandler(simplefinHandler));
 app.get('/api/financial-digest', adaptHandler(financialDigestHandler));
 app.post('/api/save-mapping', adaptHandler(saveMappingHandler));
 
 app.listen(PORT, () => {
     console.log(`Backend server running on http://localhost:${PORT}`);
-    console.log(`- Lunch Money API Key config: ${process.env.LUNCH_MONEY_API_KEY ? 'FOUND' : 'MISSING (Check .env)'}`);
+    console.log(`- SimpleFIN Access URL configuration: ${process.env.SimpleFIN ? 'FOUND' : 'MISSING (Check .env)'}`);
 });
