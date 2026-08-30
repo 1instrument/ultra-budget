@@ -1,3 +1,6 @@
+import { createClient } from '@supabase/supabase-js';
+import { fetchSimpleFinData, persistTransactions } from './_lib/simplefin.js';
+
 export default async function handler(req, res) {
     if (req.method !== 'GET') {
         return res.status(405).json({ error: 'Method not allowed' });
@@ -16,60 +19,23 @@ export default async function handler(req, res) {
     }
 
     try {
-        // Fetch data from SimpleFIN
-        // SimpleFIN returns nested accounts and transactions
-        const url = new URL(accessUrl);
-        const authHeader = `Basic ${Buffer.from(`${url.username}:${url.password}`).toString('base64')}`;
-        const cleanUrl = `${url.protocol}//${url.host}${url.pathname}/accounts?version=2`;
-
-        const response = await fetch(cleanUrl, {
-            headers: { 'Authorization': authHeader }
-        });
-
-        if (!response.ok) {
-            throw new Error(`SimpleFIN API error: ${response.status}`);
-        }
-
-        const data = await response.json();
-        
-        // Transform the data to align with what the app expects
-        // But keep original values for manual mapping later
-        const transformedAccounts = (data.accounts || []).map(acc => ({
-            id: acc.id,
-            name: acc.name,
-            balance: Number(acc.balance),
-            currency: acc.currency,
-            org_name: acc.org?.name || 'Bank',
-            // Include raw object for full context
-            ...acc
-        }));
-
-        // Flatten transactions from all accounts
-        const allTransactions = [];
-        (data.accounts || []).forEach(acc => {
-            if (acc.transactions) {
-                acc.transactions.forEach(tx => {
-                    allTransactions.push({
-                        ...tx,
-                        id: tx.id || `tx-${Date.now()}-${Math.random()}`,
-                        account_id: acc.id,
-                        account_name: acc.name, // Important for the frontend mapping
-                        amount: Number(tx.amount), // Bank standard (negative = expense)
-                        // Lunch Money uses 'payee', SimpleFIN uses 'payee' or 'description'
-                        payee: tx.payee || tx.description || 'Unknown',
-                        // Map timestamp to ISO date YYYY-MM-DD
-                        date: new Date(tx.posted * 1000).toISOString().split('T')[0]
-                    });
-                });
+        const result = await fetchSimpleFinData(accessUrl);
+        let stored = 0;
+        let storageError = null;
+        const serviceKey = process.env.SUPABASE_SERVICE_KEY;
+        if (serviceKey) {
+            try {
+                const supabase = createClient('https://rsiabnbiyzhopnhjdobf.supabase.co', serviceKey);
+                const { data: owner, error: ownerError } = await supabase.from('app_state').select('id').order('updated_at', { ascending: false }).limit(1).maybeSingle();
+                if (ownerError) throw ownerError;
+                if (!owner?.id) throw new Error('No app user found for transaction ownership');
+                stored = await persistTransactions(supabase, result.transactions, owner.id);
+            } catch (error) {
+                storageError = error.message;
+                console.error('Transaction persistence failed:', error);
             }
-        });
-
-        // Current UI expects: { transactions: [...] } and { accounts: [...] }
-        res.status(200).json({ 
-            transactions: allTransactions,
-            accounts: transformedAccounts,
-            errors: data.errors || []
-        });
+        }
+        res.status(200).json({ ...result, stored, storage_error: storageError });
     } catch (error) {
         console.error('SimpleFIN Proxy error:', error);
         res.status(500).json({ error: 'Failed to fetch budget data' });

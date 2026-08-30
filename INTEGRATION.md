@@ -45,3 +45,18 @@ Sync your real-world transactions with your budget.
 - **State**: The app uses `localStorage` for high-speed persistence on your phone.
 - **PWA**: Using a `manifest.json` for native-feeling navigation.
 - **UI**: Optimized for the iPhone 12 Pro's screen dimensions and safe areas.
+
+---
+
+## Daily financial-health email and transaction storage
+
+1. Run `TRANSACTIONS_AND_EMAIL.sql` once in the Supabase SQL editor.
+2. Add these Vercel environment variables:
+   - `SUPABASE_SERVICE_KEY` — the Supabase service-role key (server-side only).
+   - `RESEND_API_KEY` — an API key from Resend.
+   - `CRON_SECRET` — a long random value used by Vercel to authenticate cron calls.
+   - `REPORT_EMAIL` — destination address (optional; defaults to the app user's email).
+   - `REPORT_FROM_EMAIL` — verified sender such as `Ultra Budget <budget@yourdomain.com>` (optional while testing).
+3. Redeploy. The cron in `vercel.json` runs daily at 13:00 UTC (7:00 AM CST / 8:00 AM CDT).
+
+Opening Transactions syncs SimpleFIN and upserts transactions into Supabase. The daily job also syncs first, so reports stay current when the app is not opened. Preview `/api/financial-digest` with the `x-ultra-secret` header; add `?send=1` to send a manual test email.
