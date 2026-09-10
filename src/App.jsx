@@ -4,7 +4,7 @@ import {
     Lightbulb, Wallet, Building2, Sparkles, LayoutDashboard, Receipt,
     Coffee, ShoppingBag, Zap, Car, Home, CreditCard, Target, CalendarCheck,
     Users, Clock, CheckCircle2, DollarSign, Filter, ShieldCheck, Moon,
-    FileText, StickyNote, User, Share, Copy, X
+    FileText, StickyNote, User, Share, Copy, X, RefreshCw, Landmark
 } from 'lucide-react';
 
 
@@ -18,6 +18,11 @@ const CURRENT_DAY = new Date().getDate();
 const INITIAL_STATE = {
     salary: 4000,
     w2Wages: 2100,
+    householdTarget: 4300,
+    galleryOperatingTarget: 5815,
+    galleryReserveMonths: 3,
+    galleryTaxReserve: 0,
+    galleryCommittedExpenses: 0,
     personalBalance: 5200,
     bizBalance: 28500,
     streak: 1,
@@ -313,6 +318,8 @@ export default function App() {
     const [isSyncing, setIsSyncing] = useState(false);
     const [debugMode, setDebugMode] = useState(false);
     const [transactions, setTransactions] = useState(PLACEHOLDER_TXS);
+    const [connectedAccounts, setConnectedAccounts] = useState([]);
+    const [balanceUpdatedAt, setBalanceUpdatedAt] = useState(null);
     const [txLimit, setTxLimit] = useState(50);
     // Transaction filters - default all OFF (show all)
     const [accountFilters, setAccountFilters] = useState({
@@ -491,6 +498,43 @@ export default function App() {
 
     const fmt = (n) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(n);
     const pct = (a) => data.salary > 0 ? ((a / data.salary) * 100).toFixed(0) : 0;
+    const isCashAccount = (account) => /check|chk|saving/i.test(account?.name || '');
+    const cashAccounts = connectedAccounts.filter(isCashAccount);
+    const totalLiquid = cashAccounts.reduce((sum, account) => sum + Math.max(0, Number(account.balance) || 0), 0);
+    const householdCash = cashAccounts.find(account => /2439/.test(account.name || ''))?.balance ?? data.personalBalance;
+    const householdRunway = Number(householdCash) > 0 ? Number(householdCash) / 4300 : 0;
+    const galleryCash = cashAccounts.find(account => /6390/.test(account.name || ''))?.balance ?? data.bizBalance;
+    const householdTarget = Number(data.householdTarget) || 4300;
+    const galleryOperatingTarget = Number(data.galleryOperatingTarget) || 5815;
+    const galleryReserveMonths = Number(data.galleryReserveMonths) || 0;
+    const galleryTaxReserve = Number(data.galleryTaxReserve) || 0;
+    const galleryCommittedExpenses = Number(data.galleryCommittedExpenses) || 0;
+    const combinedMonthlyFloor = householdTarget + galleryOperatingTarget;
+    const stableIncome = Number(data.w2Wages) || 0;
+    const plannedGalleryDistribution = Math.max(0, householdTarget - stableIncome);
+    const householdFundingGap = Math.max(0, householdTarget - stableIncome - plannedGalleryDistribution);
+    const householdAfterObligations = Number(householdCash) - householdTarget;
+    const galleryRunway = Number(galleryCash) > 0 ? Number(galleryCash) / galleryOperatingTarget : 0;
+    const householdReserveTarget = householdTarget * 3;
+    const galleryReserveTarget = (galleryOperatingTarget * galleryReserveMonths) + galleryTaxReserve + galleryCommittedExpenses;
+    const maximumPrudentTransfer = Math.max(0, Number(galleryCash) - galleryReserveTarget);
+
+    const getAccountPresentation = (account) => {
+        const name = account?.name || 'Connected account';
+        if (/2439/.test(name)) return { label: 'Household checking', kind: 'Household', tone: 'blue', icon: Wallet };
+        if (/6390/.test(name)) return { label: 'Gallery checking', kind: 'Gallery', tone: 'teal', icon: Building2 };
+        if (/8695|3259/.test(name)) return { label: 'Other business checking', kind: 'Separate', tone: 'amber', icon: Landmark };
+        if (/freedom|6711|7891/i.test(name)) return { label: name.replace(/\s*\([^)]*\)\s*$/, ''), kind: 'Credit', tone: 'purple', icon: CreditCard };
+        return { label: name.replace(/\s*\([^)]*\)\s*$/, ''), kind: 'Account', tone: 'blue', icon: Landmark };
+    };
+
+    const getAccountDisplayValue = (account) => {
+        if (isCashAccount(account)) return Number(account.balance) || 0;
+        return Math.abs(Number(account.current_balance ?? account.balance) || 0);
+    };
+    const dashboardAccounts = connectedAccounts
+        .filter(account => !/^R\. WHITTINGTON\s*\(6711\)$/i.test(account?.name || ''))
+        .sort((a, b) => getAccountDisplayValue(b) - getAccountDisplayValue(a));
 
 
     const syncSimpleFinData = async () => {
@@ -560,6 +604,12 @@ export default function App() {
 
             // Update account balances
             if (json.accounts) {
+                setConnectedAccounts(json.accounts);
+                const latestBalanceDate = Math.max(
+                    ...json.accounts.map(account => Number(account['balance-date']) || 0)
+                );
+                if (latestBalanceDate > 0) setBalanceUpdatedAt(new Date(latestBalanceDate * 1000));
+
                 // Fuzzy matching for business and personal accounts
                 const businessAccount = json.accounts.find(acc => acc.name?.toLowerCase().includes('business'));
                 // Flexible personal account matching - look for "Checking" that isn't business
@@ -581,12 +631,12 @@ export default function App() {
         }
     };
 
-    // Auto-sync when entering transactions page
+    // Keep the local dashboard current whenever Home or Transactions is opened.
     useEffect(() => {
-        if (page === 'transactions') {
+        if (session && (page === 'home' || page === 'transactions')) {
             syncSimpleFinData();
         }
-    }, [page]);
+    }, [page, session]);
 
 
     // Swipe Navigation Logic
@@ -663,24 +713,75 @@ export default function App() {
                                 <dailyPrompt.icon size={12} className="text-dim" />
                                 {dailyPrompt.text}
                             </div>
-                            <h1 style={{ fontSize: 24, fontWeight: 800 }}>Welcome Back</h1>
                         </div>
 
-                        {/* Home View: Balances + Salary + Allocations + Goals */}
-                        <div className="account-section">
-                            <div className="account-section-title">Account Balances</div>
-                            <div className="account-grid">
-                                <div className="account-card">
-                                    <div className="account-label"><Wallet size={10} className="text-blue" /> Personal</div>
-                                    <div className="input-inline account-value" style={{ border: 'none', background: 'transparent', padding: 0 }}>{fmt(data.personalBalance)}</div>
+                        {/* Local dashboard redesign: liquidity + connected accounts */}
+                        <section className="balance-dashboard">
+                            <div className="liquid-hero-card">
+                                <div className="liquid-hero-topline">
+                                    <span>Total liquid</span>
+                                    <button className="balance-refresh" onClick={syncSimpleFinData} disabled={isSyncing} aria-label="Refresh account balances">
+                                        <RefreshCw size={14} className={isSyncing ? 'is-spinning' : ''} />
+                                        {isSyncing ? 'Syncing' : 'Refresh'}
+                                    </button>
                                 </div>
-                                <div className="account-card">
-                                    <div className="account-label"><Building2 size={10} className="text-green" /> Business</div>
-                                    <div className="input-inline account-value text-green" style={{ border: 'none', background: 'transparent', padding: 0 }}>{fmt(data.bizBalance)}</div>
+                                <div className="liquid-hero-value">{connectedAccounts.length ? fmt(totalLiquid) : '—'}</div>
+                                <div className="liquid-hero-meta">
+                                    <span>{cashAccounts.length} connected cash {cashAccounts.length === 1 ? 'account' : 'accounts'}</span>
+                                    <span>{balanceUpdatedAt ? `As of ${balanceUpdatedAt.toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}` : 'Waiting for first sync'}</span>
                                 </div>
                             </div>
-                        </div>
 
+                            <div className="dashboard-section-heading">
+                                <div>
+                                    <span className="dashboard-eyebrow">Accounts</span>
+                                    <h2>Your money, by account</h2>
+                                </div>
+                                <span className="account-count">{dashboardAccounts.length}</span>
+                            </div>
+
+                            <div className="connected-account-grid">
+                                {dashboardAccounts.map(account => {
+                                    const presentation = getAccountPresentation(account);
+                                    const AccountIcon = presentation.icon;
+                                    const isCash = isCashAccount(account);
+                                    return (
+                                        <article key={account.id} className={`connected-account-card tone-${presentation.tone}`}>
+                                            <div className="connected-account-header">
+                                                <div className="account-icon-wrap"><AccountIcon size={16} /></div>
+                                                <span className="account-kind">{presentation.kind}</span>
+                                            </div>
+                                            <div className="connected-account-name">{presentation.label}</div>
+                                            <div className="connected-account-value">{fmt(getAccountDisplayValue(account))}</div>
+                                            <div className="connected-account-footer">
+                                                <span>•••• {account.name?.match(/\((\d{4})\)/)?.[1] || '—'}</span>
+                                                <span>{isCash ? 'Available' : 'Current balance'}</span>
+                                            </div>
+                                        </article>
+                                    );
+                                })}
+                                {!connectedAccounts.length && (
+                                    <div className="account-loading-card">Account cards will appear after SimpleFIN finishes syncing.</div>
+                                )}
+                            </div>
+
+                            <div className="planning-strip">
+                                <div>
+                                    <span>Household plan</span>
+                                    <strong>$4,300/mo</strong>
+                                </div>
+                                <div>
+                                    <span>Cash runway</span>
+                                    <strong>{householdRunway ? `${householdRunway.toFixed(1)} mo` : '—'}</strong>
+                                </div>
+                                <div>
+                                    <span>3-mo reserve</span>
+                                    <strong>$12,900</strong>
+                                </div>
+                            </div>
+                        </section>
+
+                        <div className="home-budgeting-tools">
                         {/* Salary Draw */}
                         <div className="card mb-3">
                             <span className="card-title">Salary Draw</span>
@@ -842,6 +943,7 @@ export default function App() {
                                 );
                             })}
                             <button className="add-item-btn" onClick={addGoal}><Plus size={11} /> Add Goal</button>
+                        </div>
                         </div>
                     </>
                 ) : page === 'profile' ? (
@@ -1299,63 +1401,156 @@ export default function App() {
                     </>
                 ) : (
                     /* Strategy Page */
-                    <>
-                        <div className="mb-3">
-                            <h1 style={{ fontSize: 18, fontWeight: 700, marginBottom: 4 }}>CEO Strategy</h1>
-                            <p className="text-secondary" style={{ fontSize: 11 }}>Separating the business reservoir from the household pipe</p>
-                        </div>
+                    <section className="strategy-page">
+                        <header className="strategy-heading">
+                            <h1>Strategy</h1>
+                            <p>Your 90-day financial floor</p>
+                        </header>
 
-                        {/* The Draw Habit */}
-                        <div className="card mb-3" style={{ borderLeft: '3px solid var(--accent-teal)' }}>
-                            <div className="flex items-center gap-2 mb-2">
-                                <TrendingUp size={14} className="text-teal" />
-                                <span style={{ fontSize: 13, fontWeight: 600 }}>The $4k Target</span>
+                        <article className="strategy-card assumptions-card">
+                            <div className="strategy-card-title">
+                                <div><span className="dashboard-eyebrow">Master inputs</span><h2>Planning assumptions</h2></div>
                             </div>
-                            <p className="text-secondary" style={{ fontSize: 11, lineHeight: 1.6, marginBottom: 12 }}>
-                                Your goal is a steady $4,000 household income. Your W2 covers ~$2,100 automatically. Your job is to move the remaining **{fmt(Math.max(0, data.salary - data.w2Wages))}** from the business to personal checking.
-                            </p>
-                            <div style={{ background: 'var(--bg-input)', borderRadius: 12, padding: 12 }}>
-                                <div style={{ fontSize: 10, fontWeight: 600, color: 'var(--text-dim)', marginBottom: 8 }}>THIS MONTH'S ACTION:</div>
-                                <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--accent-teal)' }}>
-                                    Transfer {fmt(Math.max(0, data.salary - data.w2Wages))} from Biz Checking
+                            <div className="assumption-grid">
+                                <label><span>Household need</span><div>$<input type="number" value={householdTarget} onChange={e => updateField('householdTarget', Number(e.target.value) || 0)} /></div></label>
+                                <label><span>Stable income</span><div>$<input type="number" value={stableIncome} onChange={e => updateField('w2Wages', Number(e.target.value) || 0)} /></div></label>
+                                <label><span>Gallery operations</span><div>$<input type="number" value={galleryOperatingTarget} onChange={e => updateField('galleryOperatingTarget', Number(e.target.value) || 0)} /></div></label>
+                                <label><span>Gallery reserve</span><div><input type="number" min="0" step="0.5" value={galleryReserveMonths} onChange={e => updateField('galleryReserveMonths', Number(e.target.value) || 0)} /> months</div></label>
+                                <label><span>Tax reserve</span><div>$<input type="number" value={galleryTaxReserve} onChange={e => updateField('galleryTaxReserve', Number(e.target.value) || 0)} /></div></label>
+                                <label><span>Upcoming one-time obligations</span><div>$<input type="number" value={galleryCommittedExpenses} onChange={e => updateField('galleryCommittedExpenses', Number(e.target.value) || 0)} /></div></label>
+                            </div>
+                            <p className="guardrail-note">These values guide every calculation below. Changes save with your existing budget settings.</p>
+                        </article>
+
+                        <article className={`strategy-status-card ${householdAfterObligations >= 0 ? 'is-safe' : 'is-short'}`}>
+                            <div className="strategy-status-main">
+                                <div className="strategy-status-icon"><ShieldCheck size={22} /></div>
+                                <div>
+                                    <h2>{householdAfterObligations >= 0 ? 'Safe this month' : 'Monthly floor at risk'}</h2>
+                                    <p><strong>{fmt(Math.abs(householdAfterObligations))}</strong> {householdAfterObligations >= 0 ? 'available after household obligations' : 'short of household obligations'}</p>
                                 </div>
                             </div>
+                            <div className="strategy-progress"><span style={{ width: `${Math.min(100, (Number(householdCash) / householdTarget) * 100)}%` }} /></div>
+                            <div className="strategy-progress-meta">
+                                <span>{Math.round((Number(householdCash) / householdTarget) * 100)}% of one month covered</span>
+                                <span>{fmt(householdCash)} cash</span>
+                            </div>
+                        </article>
+
+                        <div className="strategy-floor-grid">
+                            <div><span>Household</span><strong>{fmt(householdTarget)}</strong><small>monthly need</small></div>
+                            <div><span>Gallery</span><strong>{fmt(galleryOperatingTarget)}</strong><small>monthly operations</small></div>
+                            <div><span>Combined</span><strong>{fmt(combinedMonthlyFloor)}</strong><small>monthly floor</small></div>
                         </div>
 
-                        {/* Weekly Runway Check */}
-                        <div className="card mb-3" style={{ borderLeft: '3px solid var(--accent-blue)' }}>
-                            <div className="flex items-center gap-2 mb-2">
-                                <Building2 size={14} className="text-blue" />
-                                <span style={{ fontSize: 13, fontWeight: 600 }}>The Runway Philosophy</span>
+                        <article className="strategy-card">
+                            <div className="strategy-card-title"><h2>Funding plan</h2><ChevronRight size={18} /></div>
+                            <div className="strategy-rows">
+                                <div><span>Stable income</span><strong>{fmt(stableIncome)}</strong></div>
+                                <div><span>Gallery support required</span><strong>{fmt(plannedGalleryDistribution)}</strong></div>
+                                <div><span>Gallery support safely available</span><strong>{fmt(Math.min(plannedGalleryDistribution, maximumPrudentTransfer))}</strong></div>
+                                <div><span>Unfunded gap</span><strong className={(plannedGalleryDistribution - Math.min(plannedGalleryDistribution, maximumPrudentTransfer)) > 0 ? 'text-amber' : 'text-green'}>{fmt(Math.max(0, plannedGalleryDistribution - maximumPrudentTransfer))}</strong></div>
                             </div>
-                            <p className="text-secondary" style={{ fontSize: 11, lineHeight: 1.6, marginBottom: 12 }}>
-                                Slow revenue months are okay. As long as your Business Runway is &gt;6 months, your personal salary draw is safe. Don't touch the household budget based on a slow week.
-                            </p>
-                            <div className="bento-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-                                <div style={{ background: 'var(--bg-input)', borderRadius: 10, padding: 10 }}>
-                                    <div style={{ fontSize: 9, color: 'var(--text-dim)' }}>BIZ BALANCE</div>
-                                    <div style={{ fontSize: 14, fontWeight: 700 }}>{fmt(data.bizBalance)}</div>
-                                </div>
-                                <div style={{ background: 'var(--bg-input)', borderRadius: 10, padding: 10 }}>
-                                    <div style={{ fontSize: 9, color: 'var(--text-dim)' }}>RUNWAY</div>
-                                    <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--accent-blue)' }}>
-                                        {(data.salary - data.w2Wages) > 0 ? (data.bizBalance / (data.salary - data.w2Wages)).toFixed(1) : '∞'}mo
+                            <div className="funding-bar">
+                                <span style={{ width: `${Math.min(100, (stableIncome / householdTarget) * 100)}%` }} />
+                                <span style={{ width: `${Math.min(100, (Math.min(plannedGalleryDistribution, maximumPrudentTransfer) / householdTarget) * 100)}%` }} />
+                            </div>
+                            <div className="funding-legend"><span>{fmt(stableIncome)} stable</span><span>{fmt(Math.min(plannedGalleryDistribution, maximumPrudentTransfer))} safely available</span></div>
+                        </article>
+
+                        <article className="strategy-card">
+                            <div className="strategy-card-title"><h2>Reserve health</h2><span className="strategy-target-label">Household 3 mo · Gallery {galleryReserveMonths} mo</span></div>
+                            <div className="reserve-row">
+                                <span>Household</span>
+                                <div><i style={{ width: `${Math.min(100, (householdRunway / 3) * 100)}%` }} /></div>
+                                <strong>{householdRunway.toFixed(1)} mo</strong>
+                            </div>
+                            <div className="reserve-row gallery">
+                                <span>Gallery</span>
+                                <div><i style={{ width: `${galleryReserveMonths > 0 ? Math.min(100, (galleryRunway / galleryReserveMonths) * 100) : 100}%` }} /></div>
+                                <strong>{galleryRunway.toFixed(1)} mo</strong>
+                            </div>
+                        </article>
+
+                        <article className="strategy-card">
+                            <div className="strategy-card-title"><h2>Next 90 days</h2><ChevronRight size={18} /></div>
+                            <div className="ninety-day-grid">
+                                {[0, 1, 2].map(offset => {
+                                    const month = new Date();
+                                    month.setMonth(month.getMonth() + offset);
+                                    return (
+                                        <div key={offset}>
+                                            <span>{month.toLocaleString([], { month: 'short' }).toUpperCase()}</span>
+                                            <strong>{fmt(combinedMonthlyFloor)}</strong>
+                                            <small>required cash flow</small>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </article>
+
+                        <article className="strategy-card">
+                            <div className="strategy-card-title"><h2>Monthly guardrails</h2><ChevronRight size={18} /></div>
+                            <div className="strategy-rows guardrail-rows">
+                                <div><span>Household 3-month target</span><strong>{fmt(householdReserveTarget)}</strong></div>
+                                <div><span>Protected gallery floor</span><strong>{fmt(galleryReserveTarget)}</strong></div>
+                                <div><span>Available above gallery target</span><strong>{fmt(maximumPrudentTransfer)}</strong></div>
+                            </div>
+                            <p className="guardrail-note">Planning guidance only. This page never initiates transfers.</p>
+                        </article>
+
+                        <div className="strategy-budget-section">
+                            <div className="dashboard-section-heading">
+                                <div><span className="dashboard-eyebrow">Budget helper</span><h2>Monthly allocations</h2></div>
+                                <strong className="strategy-budget-total">{fmt(totalPersonal)}</strong>
+                            </div>
+                            {data.groups.map(group => {
+                                const groupTotal = group.items.reduce((sum, item) => sum + Number(item.amount || 0), 0);
+                                return (
+                                    <div key={group.id} className="group-card">
+                                        <div className="group-header">
+                                            <div className="group-name-row">
+                                                <div className="group-indicator" style={{ background: group.color }} />
+                                                <input className="input-inline group-name" value={group.name} onChange={e => updateGroup(group.id, 'name', e.target.value)} />
+                                            </div>
+                                            <div className="group-meta" onClick={() => toggleGroup(group.id)}>
+                                                <span className="group-total">{fmt(groupTotal)}</span>
+                                                {group.collapsed ? <ChevronRight size={17} /> : <ChevronDown size={17} />}
+                                            </div>
+                                        </div>
+                                        {!group.collapsed && <div className="group-content">
+                                            {group.items.map(item => <div key={item.id} className="item-row strategy-item-row">
+                                                <input className="input-inline item-name" value={item.name} onChange={e => updateItem(group.id, item.id, 'name', e.target.value)} />
+                                                <div className="item-meta"><span>$</span><input type="number" className="input-inline item-amount" value={item.amount} onChange={e => updateItem(group.id, item.id, 'amount', e.target.value)} /></div>
+                                                <button className="btn-icon btn-delete" onClick={() => deleteItem(group.id, item.id)}><Trash2 size={11} /></button>
+                                            </div>)}
+                                            <button className="add-item-btn" onClick={() => addItem(group.id)}><Plus size={11} /> Add Item</button>
+                                        </div>}
                                     </div>
-                                </div>
-                            </div>
+                                );
+                            })}
                         </div>
 
-                        {/* Partner Sync */}
-                        <div className="card mb-3" style={{ borderLeft: '3px solid var(--accent-primary)', background: 'linear-gradient(135deg, rgba(91, 127, 255, 0.05), transparent)' }}>
-                            <div className="flex items-center gap-2 mb-2">
-                                <Users size={14} className="text-accent" />
-                                <span style={{ fontSize: 13, fontWeight: 600 }}>Sunday Partner Sync</span>
-                            </div>
-                            <p className="text-secondary" style={{ fontSize: 11, lineHeight: 1.6, marginBottom: 12 }}>
-                                15 minutes with your wife. Show her the Runway first. It removes the stress. Then review the "Variable Spending" group together.
-                            </p>
+                        <div className="strategy-budget-section">
+                            <div className="dashboard-section-heading"><div><span className="dashboard-eyebrow">Prepare for</span><h2>Financial goals</h2></div></div>
+                            {data.goals.map(goal => {
+                                const contributed = Object.values(goal.monthlyContributions || {}).reduce((sum, amount) => sum + Number(amount || 0), 0);
+                                const saved = Number(goal.startingBalance || 0) + contributed;
+                                const progress = goal.target > 0 ? Math.min(100, (saved / goal.target) * 100) : 0;
+                                return <article key={goal.id} className="strategy-card compact-goal-card">
+                                    <div className="compact-goal-title"><input className="input-inline" value={goal.name} onChange={e => updateGoal(goal.id, 'name', e.target.value)} /><button className="btn-icon btn-delete" onClick={() => deleteGoal(goal.id)}><Trash2 size={11} /></button></div>
+                                    <div className="compact-goal-inputs">
+                                        <label><span>Target</span><div>$<input type="number" value={goal.target} onChange={e => updateGoal(goal.id, 'target', e.target.value)} /></div></label>
+                                        <label><span>Starting balance</span><div>$<input type="number" value={goal.startingBalance} onChange={e => updateGoal(goal.id, 'startingBalance', e.target.value)} /></div></label>
+                                        <label><span>Monthly contribution</span><div>$<input type="number" value={goal.currentContribution || 0} onChange={e => updateGoalContribution(goal.id, e.target.value)} /></div></label>
+                                    </div>
+                                    <div className="strategy-progress compact-goal-progress"><span style={{ width: `${progress}%` }} /></div>
+                                    <div className="strategy-progress-meta"><span>{fmt(saved)} saved</span><span>{progress.toFixed(0)}%</span></div>
+                                </article>;
+                            })}
+                            <button className="add-item-btn" onClick={addGoal}><Plus size={11} /> Add Goal</button>
                         </div>
-                    </>
+                    </section>
                 )}
             </div>
 

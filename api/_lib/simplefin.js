@@ -8,14 +8,22 @@ export async function fetchSimpleFinData(accessUrl = process.env.SimpleFIN) {
     if (!response.ok) throw new Error(`SimpleFIN API error: ${response.status}`);
 
     const data = await response.json();
-    const accounts = (data.accounts || []).map(account => ({
-        ...account,
-        id: String(account.id),
-        name: account.name,
-        balance: Number(account.balance),
-        currency: account.currency,
-        org_name: account.org?.name || 'Bank'
-    }));
+    const accounts = (data.accounts || []).map(account => {
+        const availableBalance = Number(account['available-balance']);
+        const currentBalance = Number(account.balance);
+
+        return {
+            ...account,
+            id: String(account.id),
+            name: account.name,
+            // Use the amount that is actually available to spend. Some
+            // institutions omit it, so fall back to the current balance.
+            balance: Number.isFinite(availableBalance) ? availableBalance : currentBalance,
+            current_balance: currentBalance,
+            currency: account.currency,
+            org_name: account.org?.name || 'Bank'
+        };
+    });
 
     const transactions = accounts.flatMap(account => (account.transactions || []).map(tx => ({
         ...tx,
