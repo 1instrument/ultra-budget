@@ -548,6 +548,9 @@ export default function App() {
             });
 
             const json = await response.json();
+            if (!response.ok) {
+                throw new Error(json.error || `SimpleFIN sync failed (${response.status})`);
+            }
 
             // Update transactions
             if (json.transactions) {
@@ -1011,7 +1014,7 @@ export default function App() {
                                 >
                                     {debugMode ? 'Debug ON' : 'Debug'}
                                 </button>
-                                <button className={`sync-btn ${isSyncing ? 'syncing' : ''}`} onClick={syncLunchMoneyData} disabled={isSyncing}>
+                                <button className={`sync-btn ${isSyncing ? 'syncing' : ''}`} onClick={syncSimpleFinData} disabled={isSyncing}>
                                     <Clock size={12} className={isSyncing ? 'spin' : ''} />
                                     {isSyncing ? 'Syncing...' : 'Sync'}
                                 </button>

@@ -3,7 +3,10 @@ export async function fetchSimpleFinData(accessUrl = process.env.SimpleFIN) {
 
     const url = new URL(accessUrl);
     const authHeader = `Basic ${Buffer.from(`${url.username}:${url.password}`).toString('base64')}`;
-    const cleanUrl = `${url.protocol}//${url.host}${url.pathname}/accounts?version=2`;
+    // SimpleFIN otherwise returns only its default, very short transaction
+    // window. Request just under the provider's 90-day maximum.
+    const startDate = Math.floor(Date.now() / 1000) - (89 * 24 * 60 * 60);
+    const cleanUrl = `${url.protocol}//${url.host}${url.pathname}/accounts?version=2&start-date=${startDate}&pending=1`;
     const response = await fetch(cleanUrl, { headers: { Authorization: authHeader } });
     if (!response.ok) throw new Error(`SimpleFIN API error: ${response.status}`);
 
