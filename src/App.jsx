@@ -498,8 +498,9 @@ export default function App() {
 
     const fmt = (n) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(n);
     const pct = (a) => data.salary > 0 ? ((a / data.salary) * 100).toFixed(0) : 0;
+    const isExcludedAccount = (account) => /\(3259\)\s*$/.test(account?.name || '');
     const isCashAccount = (account) => /check|chk|saving/i.test(account?.name || '');
-    const cashAccounts = connectedAccounts.filter(isCashAccount);
+    const cashAccounts = connectedAccounts.filter(account => !isExcludedAccount(account) && isCashAccount(account));
     const totalLiquid = cashAccounts.reduce((sum, account) => sum + Math.max(0, Number(account.balance) || 0), 0);
     const householdCash = cashAccounts.find(account => /2439/.test(account.name || ''))?.balance ?? data.personalBalance;
     const householdRunway = Number(householdCash) > 0 ? Number(householdCash) / 4300 : 0;
@@ -533,7 +534,7 @@ export default function App() {
         return Math.abs(Number(account.current_balance ?? account.balance) || 0);
     };
     const dashboardAccounts = connectedAccounts
-        .filter(account => !/^R\. WHITTINGTON\s*\(6711\)$/i.test(account?.name || ''))
+        .filter(account => !isExcludedAccount(account) && !/^R\. WHITTINGTON\s*\(6711\)$/i.test(account?.name || ''))
         .sort((a, b) => getAccountDisplayValue(b) - getAccountDisplayValue(a));
 
 

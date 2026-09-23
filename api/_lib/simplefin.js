@@ -11,7 +11,11 @@ export async function fetchSimpleFinData(accessUrl = process.env.SimpleFIN) {
     if (!response.ok) throw new Error(`SimpleFIN API error: ${response.status}`);
 
     const data = await response.json();
-    const accounts = (data.accounts || []).map(account => {
+    const accounts = (data.accounts || []).filter(account => {
+        // Closed account 3259 is represented by a replacement check and is
+        // intentionally excluded until those funds are deposited elsewhere.
+        return !/\(3259\)\s*$/.test(account.name || '');
+    }).map(account => {
         const availableBalance = Number(account['available-balance']);
         const currentBalance = Number(account.balance);
 
