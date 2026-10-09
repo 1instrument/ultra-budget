@@ -11,6 +11,7 @@ import {
 
 import { useSwipe } from './useSwipe';
 import { supabase } from './supabase';
+import { classifyAccount } from './accountClassification';
 
 const PAGE_ORDER = ['home', 'transactions', 'notes', 'strategy', 'profile'];
 const CURRENT_DAY = new Date().getDate();
@@ -559,8 +560,7 @@ export default function App() {
 
                 // Helper to determine icon and color based on account
                 const getIconAndColor = (accountName) => {
-                    const isBusiness = accountName?.toLowerCase().includes('business');
-                    const isCC = accountName?.toLowerCase().includes('cc') || accountName?.toLowerCase().includes('credit') || accountName?.toLowerCase().includes('freedom');
+                    const { isBiz: isBusiness, isCC } = classifyAccount(accountName);
                     return {
                         icon: isBusiness ? Building2 : Wallet,
                         isCC: isCC,
@@ -1178,9 +1178,7 @@ export default function App() {
                                     // Account filters (if any active)
                                     if (anyAccountFilter) {
                                         filtered = filtered.filter(tx => {
-                                            const acct = (tx.account_name || '').toLowerCase();
-                                            const isBiz = acct.includes('business');
-                                            const isCC = acct.includes('cc') || acct.includes('credit');
+                                            const { isBiz, isCC } = classifyAccount(tx.account_name);
                                             const isFlagged = data.flaggedIds.includes(tx.id);
 
                                             const budgetName = tx.mappedGroup ? (tx.mappedGroup.name || '').toLowerCase() : '';
@@ -1227,9 +1225,7 @@ export default function App() {
                                     // Account filters
                                     if (anyAccountFilter) {
                                         filtered = filtered.filter(tx => {
-                                            const acct = (tx.account_name || '').toLowerCase();
-                                            const isBiz = acct.includes('business');
-                                            const isCC = acct.includes('cc') || acct.includes('credit');
+                                            const { isBiz, isCC } = classifyAccount(tx.account_name);
                                             const isFlagged = data.flaggedIds.includes(tx.id);
 
                                             const budgetName = tx.mappedGroup ? (tx.mappedGroup.name || '').toLowerCase() : '';
@@ -1332,9 +1328,7 @@ export default function App() {
 
                                     if (anyAccountFilter) {
                                         filtered = filtered.filter(tx => {
-                                            const acct = (tx.account_name || '').toLowerCase();
-                                            const isBiz = acct.includes('business');
-                                            const isCC = acct.includes('cc') || acct.includes('credit');
+                                            const { isBiz, isCC } = classifyAccount(tx.account_name);
                                             const isFlagged = data.flaggedIds.includes(tx.id);
 
                                             const budgetName = tx.mappedGroup ? (tx.mappedGroup.name || '').toLowerCase() : '';
